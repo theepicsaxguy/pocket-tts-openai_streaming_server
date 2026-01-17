@@ -1,0 +1,250 @@
+import os
+import argparse
+import sys
+import logging
+import io
+import time
+import json
+import glob
+from pathlib import Path
+from flask import Flask, request, jsonify, send_file, render_template, Response, stream_with_context
+import torch
+import torchaudio
+
+# Import pocket-tts
+try:
+    from pocket_tts import TTSModel
+except ImportError:
+    print("Error: pocket-tts not found. Please install it using 'pip install pocket-tts'.")
+    sys.exit(1)
+
+from utils import validate_format, convert_audio, write_wav_header
+
+# Configure Logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("PocketTTS-Server")
+
+app = Flask(__name__)
+
+# Global Variables
+model = None
+voice_cache = {} # Cache for voice states
+VOICES_DIR = None
+
+# --- Helpers ---
+
+def get_voice_state(voice_id_or_path):
+    """
+    Resolve voice ID to a model state with caching.
+    """
+    global voice_cache
+    
+    # Check cache first
+    if voice_id_or_path in voice_cache:
+        # logger.info(f"Using cached voice state for {voice_id_or_path}")
+        return voice_cache[voice_id_or_path]
+    
+    # If path is relative to VOICES_DIR and exists there, resolve it
+    if VOICES_DIR:
+        possible_path = os.path.join(VOICES_DIR, voice_id_or_path)
+        if os.path.exists(possible_path):
+            voice_id_or_path = possible_path
+
+    # Check existence if local path
+    if os.path.exists(voice_id_or_path):
+        # It's a local file
+        logger.info(f"Loading new voice state from file: {voice_id_or_path}")
+        state = model.get_state_for_audio_prompt(voice_id_or_path)
+        voice_cache[voice_id_or_path] = state
+        return state
+    
+    # URL or ID
+    try:
+        logger.info(f"Loading new voice state from ID/URL: {voice_id_or_path}")
+        state = model.get_state_for_audio_prompt(voice_id_or_path)
+        voice_cache[voice_id_or_path] = state
+        return state
+    except Exception as e:
+        logger.error(f"Failed to load voice {voice_id_or_path}: {e}")
+        raise ValueError(f"Voice '{voice_id_or_path}' could not be loaded.")
+
+# --- Routes ---
+
+@app.route('/')
+def home():
+    """Serve the simple web interface."""
+    return render_template('index.html')
+
+@app.route('/v1/voices', methods=['GET'])
+def list_voices():
+    """List available voices: Built-ins + Scanned Directory."""
+    
+    # 1. Built-in defaults
+    # User requested specific voices: alba, marius, javert, jean, fantine, cosette, eponine, azelma
+    # We map them to potential IDs. Since we don't have exact URLs for all, we assume they are either
+    # resolved by pocket-tts or the user has these files/IDs.
+    
+    builtin_map = {
+       "alba": "alba",
+       "marius": "marius", 
+       "javert": "javert",
+       "jean": "jean",
+       "fantine": "fantine",
+       "cosette": "cosette",
+       "eponine": "eponine",
+       "azelma": "azelma"
+    }
+
+    voices = []
+    for name_id in ["alba", "marius", "javert", "jean", "fantine", "cosette", "eponine", "azelma"]:
+        # If we have a known mapping (like for alba), use it as ID? 
+        # Or just use the name as ID and let get_voice_state handle it?
+        # Specifying ID as the lookup key.
+        voices.append({
+            "id": builtin_map.get(name_id, name_id),
+            "name": name_id.capitalize()
+        })
+    
+    # 2. Scan Directory if configured
+    if VOICES_DIR and os.path.isdir(VOICES_DIR):
+        # Scan for .wav files
+        wav_files = glob.glob(os.path.join(VOICES_DIR, "*.wav"))
+        for f in wav_files:
+            name = os.path.basename(f)
+            # ID is the full path so the server can access it, or just filename if we handle resolution
+            # Let's use full absolute path for robustness or relative if clean.
+            # Using filename is nicer for UI, but 'voice' parameter needs to be resolvable.
+            # get_voice_state logic handles checking VOICES_DIR.
+            voices.append({
+                "id": name, # client sends this, get_voice_state resolves via VOICES_DIR
+                "name": f"Local: {name}"
+            })
+
+    return jsonify({
+        "object": "list",
+        "data": [{"id": v["id"], "name": v["name"], "object": "voice"} for v in voices]
+    })
+
+@app.route('/v1/audio/speech', methods=['POST'])
+def generate_speech():
+    """OpenAI-compatible speech generation endpoint."""
+    data = request.json
+    
+    if not data:
+        return jsonify({"error": "Missing JSON body"}), 400
+        
+    text = data.get('input')
+    voice = data.get('voice', 'hf://kyutai/tts-voices/alba-mackenna/casual.wav')
+    response_format = data.get('response_format', 'wav')
+    
+    # Check stream flag
+    stream_request = data.get('stream', False)
+
+    if not text:
+        return jsonify({"error": "Missing 'input' text"}), 400
+
+    target_format = validate_format(response_format)
+    
+    try:
+        # Load Voice (with cache)
+        voice_state = get_voice_state(voice)
+        
+        # Determine Generation Mode
+        if stream_request or app.config.get('CLI_STREAM_DEFAULT'):
+            return stream_audio(voice_state, text, target_format)
+        else:
+            return generate_file(voice_state, text, target_format)
+            
+    except Exception as e:
+        logger.exception("Generation failed")
+        return jsonify({"error": str(e)}), 500
+
+def generate_file(voice_state, text, fmt):
+    """Generate full audio and return as file."""
+    t0 = time.time()
+    audio_tensor = model.generate_audio(voice_state, text)
+    generation_time = time.time() - t0
+    logger.info(f"Generated {len(text)} chars in {generation_time:.2f}s")
+    
+    # Convert
+    audio_buffer = convert_audio(audio_tensor, model.sample_rate, fmt)
+    
+    mimetype = f"audio/{fmt}"
+    if fmt == 'wav': mimetype = 'audio/wav'
+    elif fmt == 'mp3': mimetype = 'audio/mpeg'
+    
+    return send_file(
+        audio_buffer,
+        mimetype=mimetype,
+        as_attachment=True,
+        download_name=f"speech.{fmt}"
+    )
+
+def stream_audio(voice_state, text, fmt):
+    """Stream audio chunks."""
+    
+    def generate():
+        stream = model.generate_audio_stream(voice_state, text)
+        
+        for chunk_tensor in stream:
+            # Convert to int16 PCM bytes
+            # Ensure CPU/correct shape
+            if chunk_tensor.is_cuda: chunk_tensor = chunk_tensor.cpu()
+            if chunk_tensor.dim() == 1: chunk_tensor = chunk_tensor.unsqueeze(0)
+            
+            # Simple PCM conversion
+            c = (chunk_tensor * 32767).clamp(-32768, 32767).to(torch.int16)
+            data_bytes = c.numpy().tobytes()
+            yield data_bytes
+
+    def stream_with_header():
+        # Valid WAV Header for streaming
+        if fmt == 'wav':
+             # We assume standard 24kHz mono based on model
+             # If model rate varies, we should use model.sample_rate
+             yield write_wav_header(model.sample_rate, num_channels=1, bits_per_sample=16, num_frames=0)
+             
+        yield from generate()
+
+    mimetype = f"audio/{fmt}"
+    if fmt == 'wav': mimetype = 'audio/wav'
+    
+    return Response(stream_with_context(stream_with_header()), mimetype=mimetype)
+
+
+# --- startup ---
+def main():
+    parser = argparse.ArgumentParser(description="Pocket TTS OpenAI Compatible Server")
+    parser.add_argument("--model_path", type=str, default=None, help="Path to model file or variant name")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run server")
+    parser.add_argument("--port", type=int, default=5002, help="Port to run server")
+    parser.add_argument("--stream", action="store_true", help="Enable streaming by default")
+    parser.add_argument("--voices_dir", type=str, default=None, help="Directory containing local voice .wav files")
+    
+    args = parser.parse_args()
+    
+    # Config
+    app.config['CLI_STREAM_DEFAULT'] = args.stream
+    global VOICES_DIR
+    VOICES_DIR = args.voices_dir
+    
+    global model
+    logger.info("Loading Pocket TTS Model...")
+    
+    # Use model_path as variant if provided, otherwise default
+    if args.model_path:
+        logger.info(f"Using custom model variant/path: {args.model_path}")
+        model = TTSModel.load_model(variant=args.model_path)
+    else:
+        model = TTSModel.load_model()
+        
+    logger.info(f"Model loaded. Device: {model.device}, Sample Rate: {model.sample_rate}")
+    
+    if VOICES_DIR:
+        logger.info(f"Scanning voices from: {VOICES_DIR}")
+        
+    logger.info(f"Starting server on {args.host}:{args.port}")
+    app.run(host=args.host, port=args.port, debug=False, threaded=True)
+
+if __name__ == "__main__":
+    main()
