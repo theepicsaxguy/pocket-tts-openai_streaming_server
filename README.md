@@ -13,12 +13,22 @@ Pocket-TTS Huggingface: https://huggingface.co/kyutai/pocket-tts
 -   **Web Interface**: Simple built-in UI to test voices and generation.
 -   **Custom Voices**: Easy addition of new voices by dragging and dropping `.wav` files.
 -   **Flexible Configuration**: Run via command line or an interactive batch launcher.
+-   **Windows EXE included**: If you want to use defaults (host: 0.0.0.0, port: 5002, streaming enabled, local model file and built-in voices) just double click on .exe and you're up and running!
 
 ## Prerequisites
 
 -   **Python 3.10+**: Ensure Python is installed and added to your system PATH.
 
-## Installation
+## EXE Installation and Usage (Windows only)
+
+-   Download latest release .zip from https://github.com/teddybear082/pocket-tts-openai_streaming_server/releases
+-   Unzip to location on your computer that is not protected, like C://Pocket-TTS-Server/
+-   To use all defaults for server (host: 0.0.0.0, port: 5002, streaming enabled, local model file and built-in voices) just double click on .exe and you're up and running!
+-   To be able to input custom arguments for any of those, run the run_pocket_tts_server_exe.bat instead and follow the UI prompts.
+-   To use the WebUI, navigate to the host and port you set in the .bat file, by default: http://localhost:5002
+-   Supports cloning .wav, .mp3. and .flac files. To try out custom cloning, use the WebUI and in the voice list select the last option to upload a custom file and insert the path to the .wav, .mp3, or .flac with the voice you want to clone.
+
+## Python Installation
 
 1.  **Clone or Download** this repository to your local machine.
 
@@ -47,7 +57,7 @@ Pocket-TTS Huggingface: https://huggingface.co/kyutai/pocket-tts
 3.  **Hugging Face Login (If required)**:
     Until a workaround is found, to enable voice cloning of .wavs you will need to insert your hugging face token when prompted in the .bat file.
 
-## Usage
+## Python Usage
 
 ### Method 1: Interactive Launcher (Windows)
 
