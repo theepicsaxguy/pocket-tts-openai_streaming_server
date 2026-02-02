@@ -1,152 +1,316 @@
-# Pocket-TTS OpenAI Streaming Server
+# PocketTTS OpenAI-Compatible Server
 
-This project implements an [OpenAI-compatible API](https://platform.openai.com/docs/api-reference/audio/createSpeech) for the **Pocket-TTS** text-to-speech model. It supports real-time streaming, high-quality voice synthesis, and easy management of custom voices.
+An OpenAI-compatible Text-to-Speech API server powered by [Pocket-TTS](https://github.com/kyutai-labs/pocket-tts). Drop-in replacement for OpenAI's TTS API with support for streaming, custom voices, and voice cloning.
 
-Pocket-TTS Github repo: https://github.com/kyutai-labs/pocket-tts
+**Key Features:**
 
-Pocket-TTS Huggingface: https://huggingface.co/kyutai/pocket-tts
+- 🎯 **OpenAI API Compatible** - Works with any OpenAI TTS client
+- 🚀 **Real-time Streaming** - Low-latency audio generation
+- 🎤 **150+ Community Voices** - Ready-to-use voice library included
+- 🎭 **Voice Cloning** - Clone any voice from a short audio sample
+- 🐳 **Docker Ready** - One-command deployment
+- 💻 **Cross-platform** - Runs on Windows, macOS, and Linux
+- ⚡ **CPU Optimized** - No GPU required
 
-## Features
+## Quick Start
 
--   **OpenAI API Compatibility**: Drop-in replacement for `tts-1` endpoints.
--   **Streaming Support**: Real-time audio generation with low latency.
--   **Web Interface**: Simple built-in UI to test voices and generation.
--   **Custom Voices**: Easy addition of new voices by dragging and dropping `.wav` files.
--   **Flexible Configuration**: Run via command line or an interactive batch launcher.
--   **Windows EXE included**: If you want to use defaults (host: 0.0.0.0, port: 5002, streaming enabled, local model file and built-in voices) just double click on .exe and you're up and running!
-
-## Prerequisites
-
--   **Python 3.10+**: Ensure Python is installed and added to your system PATH.
-
-## EXE Installation and Usage (Windows only)
-
--   Download latest release .zip from https://github.com/teddybear082/pocket-tts-openai_streaming_server/releases
--   Unzip to location on your computer that is not protected, like C://Pocket-TTS-Server/
--   To use all defaults for server (host: 0.0.0.0, port: 5002, streaming enabled, local model file and built-in voices) just double click on .exe and you're up and running!
--   To be able to input custom arguments for any of those, run the run_pocket_tts_server_exe.bat instead and follow the UI prompts.
--   To use the WebUI, navigate to the host and port you set in the .bat file, by default: http://localhost:5002
--   Supports cloning .wav, .mp3. and .flac files. To try out custom cloning, use the WebUI and in the voice list select the last option to upload a custom file and insert the path to the .wav, .mp3, or .flac with the voice you want to clone.
-
-## Python Installation
-
-1.  **Clone or Download** this repository to your local machine.
-
-2.  **Install Dependencies**:
-    It is recommended to use a virtual environment.
-
-    ```bash
-    # Create virtual environment
-    python -m venv venv
-
-    # Activate virtual environment
-    # Windows:
-    venv\Scripts\activate
-    # Linux/Mac:
-    source venv/bin/activate
-
-    # Install requirements
-    pip install -r requirements.txt
-    ```
-
-    *Note: If you do not have `requirements.txt`, you will need at least:*
-    ```bash
-    pip install flask pocket-tts torch torchaudio
-    ```
-
-3.  **Hugging Face Login (If required)**:
-    Until a workaround is found, to enable voice cloning of .wavs you will need to insert your hugging face token when prompted in the .bat file.
-
-## Python Usage
-
-### Method 1: Interactive Launcher (Windows)
-
-Double-click `run_pocket_tts_server.bat`. This interactive script handles the setup:
-
-1.  **Hugging Face Login**: It may ask for your HF Token if not already set (leave blank if voice cloning not needed).
-2.  **Environment**: Automatically looks for and activates your `venv`.
-3.  **Configuration**: detailed prompts allow you to customize the run:
-    -   **Host/Port**: Defaults to `0.0.0.0:5002`.
-    -   **Model Path**: Press ENTER for the default, or specify a custom path/variant.
-    -   **Voices Directory**: Defaults to `voices/` in the script's folder.
-    -   **Streaming**: Option to enable streaming by default for all requests.
-
-### Method 2: Command Line
-
-Activate your virtual environment and run:
+### Option 1: Docker (Recommended)
 
 ```bash
-python pocket_tts_openai_server.py --host 0.0.0.0 --port 5002 --stream
+# Clone the repository
+git clone https://github.com/teddybear082/pocket-tts-openai_streaming_server.git
+cd pocket-tts-openai_streaming_server
+
+# Start the server
+docker compose up -d
+
+# View logs
+docker compose logs -f
 ```
 
-**Arguments:**
--   `--host`: Host IP to bind to (default: `0.0.0.0`).
--   `--port`: Port to listen on (default: `5002`).
--   `--model_path`: Path to a local model file or a specific Hugging Face model variant.
--   `--voices_dir`: Directory to scan for custom voice `.wav` files (default: `voices/` in the project root if created, or as specified).
--   `--stream`: Enable streaming by default for all requests.
+The server will be available at `http://localhost:49112`
+
+**Custom Configuration:**
+
+```bash
+# Change port
+POCKET_TTS_PORT=8080 docker compose up -d
+
+# Use custom voices directory
+POCKET_TTS_VOICES_DIR=/path/to/my/voices docker compose up -d
+```
+
+### Option 2: Python (from source)
+
+```bash
+# Clone the repository
+git clone https://github.com/teddybear082/pocket-tts-openai_streaming_server.git
+cd pocket-tts-openai_streaming_server
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the server
+python server.py
+```
+
+**Command Line Options:**
+
+```bash
+python server.py --help
+
+# Custom port and voices
+python server.py --port 8080 --voices-dir ./my_voices
+
+# Enable streaming by default
+python server.py --stream
+```
+
+### Option 3: Windows Executable
+
+1. Download the latest release from [Releases](https://github.com/teddybear082/pocket-tts-openai_streaming_server/releases)
+2. Extract the ZIP file
+3. Double-click `PocketTTS-Server.exe` to run with defaults
+4. Or run `run_pocket_tts_server_exe.bat` for custom configuration
 
 ## Web Interface
 
-Once the server is running, open your web browser and go to:
+Open `http://localhost:49112` in your browser to access the built-in web UI:
 
-> **http://localhost:5002** (or your configured host:port)
-
-From here you can:
--   Select available voices (Built-in or Custom).
--   Type text to generate speech.
--   Listen to the output directly in the browser.
-
-## Custom Voices
-
-You can easily add your own voices to the server.
-
-1.  **Create a folder** for your voices (e.g., `voices/`).
-2.  **Add Audio Files**: Place short, clear `.wav` files (3-10 seconds ideal) of the target speaker in this folder.
-3.  **Restart/Configure Server**:
-    -   If using the **Batch Launcher**, specify the full path to your `voices` folder when prompted.
-    -   If using **CLI**, add `--voices_dir "path/to/voices"`.
-
-**Naming**: The filename (e.g., `my_voice.wav`) will become the Voice ID.
--   Example Voice ID: `my_voice.wav`
--   In the Request: `"voice": "my_voice.wav"`
-
-### Built-in Voices
-The server comes with mappings for several default Pocket TTS voices:
-`alba`, `marius`, `javert`, `jean`, `fantine`, `cosette`, `eponine`, `azelma`.
+- Select from available voices
+- Enter text to synthesize
+- Listen to generated audio directly
 
 ## API Usage
 
-You can use this server with any OpenAI-compatible client.
+### Generate Speech
 
-**Endpoint**: `POST /v1/audio/speech`
+**Endpoint:** `POST /v1/audio/speech`
 
-**Example Request (cURL)**:
 ```bash
-curl http://localhost:5002/v1/audio/speech \
+curl http://localhost:49112/v1/audio/speech \
   -H "Content-Type: application/json" \
   -d '{
     "model": "tts-1",
-    "input": "The quick brown fox jumps over the lazy dog.",
+    "input": "Hello world! This is a test.",
     "voice": "alba"
   }' \
-  --output speech.wav
+  --output speech.mp3
 ```
 
-**Python (openai-python)**:
+### Python Client
+
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost:5002/v1",
-    api_key="not-needed"
+    base_url="http://localhost:49112/v1",
+    api_key="not-needed"  # No authentication required
 )
 
+# Generate and save audio
 response = client.audio.speech.create(
     model="tts-1",
     voice="alba",
-    input="Hello world! This is a test of Pocket TTS."
+    input="Hello world! This is a test."
 )
+response.stream_to_file("output.mp3")
 
-response.stream_to_file("output.wav")
+# Streaming
+with client.audio.speech.with_streaming_response.create(
+    model="tts-1",
+    voice="alba",
+    input="This is streaming audio.",
+    response_format="pcm"
+) as response:
+    for chunk in response.iter_bytes():
+        # Process audio chunks in real-time
+        pass
 ```
+
+### API Reference
+
+| Endpoint           | Method | Description                              |
+| ------------------ | ------ | ---------------------------------------- |
+| `/`                | GET    | Web interface                            |
+| `/health`          | GET    | Health check for container orchestration |
+| `/v1/voices`       | GET    | List available voices                    |
+| `/v1/audio/speech` | POST   | Generate speech audio                    |
+
+**Speech Parameters:**
+
+| Parameter         | Type    | Required | Default | Description                                        |
+| ----------------- | ------- | -------- | ------- | -------------------------------------------------- |
+| `model`           | string  | No       | -       | Ignored (for OpenAI compatibility)                 |
+| `input`           | string  | Yes      | -       | Text to synthesize                                 |
+| `voice`           | string  | No       | `alba`  | Voice ID (see `/v1/voices`)                        |
+| `response_format` | string  | No       | `mp3`   | Output format: `mp3`, `wav`, `pcm`, `opus`, `flac` |
+| `stream`          | boolean | No       | `false` | Enable streaming response                          |
+
+## Custom Voices
+
+### Using Custom Voice Files
+
+1. **Create a voices directory** with your audio files (`.wav`, `.mp3`, `.flac`)
+2. **Configure the server** to use your directory:
+
+   **Docker:**
+
+   ```bash
+   POCKET_TTS_VOICES_DIR=/path/to/voices docker compose up -d
+   ```
+
+   **Python:**
+
+   ```bash
+   python server.py --voices-dir /path/to/voices
+   ```
+
+   **Windows EXE:**
+   Use the batch launcher and specify the voices directory when prompted.
+
+3. **Use your voice** by filename:
+   ```json
+   { "voice": "my_voice.wav", "input": "Hello!" }
+   ```
+
+### Voice File Guidelines
+
+- **Duration:** 3-10 seconds of clear speech works best
+- **Quality:** Clean audio without background noise
+- **Format:** WAV, MP3, or FLAC
+- **Tip:** Use [Adobe Podcast Enhance](https://podcast.adobe.com/enhance) to clean noisy samples
+
+### Built-in Voices
+
+The following voices are available by default:
+`alba`, `marius`, `javert`, `jean`, `fantine`, `cosette`, `eponine`, `azelma`
+
+The `voices/` directory includes 150+ community-contributed voices.
+
+## Configuration
+
+### Environment Variables
+
+| Variable                    | Default    | Description                            |
+| --------------------------- | ---------- | -------------------------------------- |
+| `POCKET_TTS_HOST`           | `0.0.0.0`  | Server bind address                    |
+| `POCKET_TTS_PORT`           | `49112`    | Server port                            |
+| `POCKET_TTS_VOICES_DIR`     | `./voices` | Custom voices directory                |
+| `POCKET_TTS_MODEL_PATH`     | -          | Custom model path                      |
+| `POCKET_TTS_STREAM_DEFAULT` | `true`     | Enable streaming by default            |
+| `POCKET_TTS_LOG_LEVEL`      | `INFO`     | Log level: DEBUG, INFO, WARNING, ERROR |
+| `POCKET_TTS_LOG_DIR`        | `./logs`   | Log files directory                    |
+| `HF_TOKEN`                  | -          | Hugging Face token (for voice cloning) |
+
+### Docker Compose Options
+
+See [docker-compose.yml](docker-compose.yml) for all available options including:
+
+- Volume mounts for custom voices
+- Resource limits
+- Health check configuration
+- HuggingFace cache persistence
+
+## Project Structure
+
+```
+pocket-tts-openai_streaming_server/
+├── app/                    # Application modules
+│   ├── __init__.py        # Flask app factory
+│   ├── config.py          # Configuration management
+│   ├── logging_config.py  # Logging setup
+│   ├── routes.py          # API endpoints
+│   └── services/          # Business logic
+│       ├── audio.py       # Audio conversion
+│       └── tts.py         # TTS service
+├── static/                 # Web UI assets
+├── templates/              # HTML templates
+├── voices/                 # Voice files
+├── server.py              # Main entry point
+├── Dockerfile             # Container build
+├── docker-compose.yml     # Container orchestration
+└── requirements.txt       # Python dependencies
+```
+
+## Development
+
+### Dependencies
+
+| File                   | Purpose                                              |
+| ---------------------- | ---------------------------------------------------- |
+| `requirements.txt`     | Runtime dependencies only (Flask, torch, pocket-tts) |
+| `requirements-dev.txt` | Adds dev tools: ruff (linting), pytest (testing)     |
+
+### Running Locally
+
+```bash
+# Install runtime dependencies only
+pip install -r requirements.txt
+
+# Or install with dev tools (recommended for contributors)
+pip install -r requirements-dev.txt
+
+# Run with debug logging
+python server.py --log-level DEBUG
+```
+
+### Linting
+
+```bash
+pip install ruff
+ruff check .
+ruff format .
+```
+
+### Building Windows EXE
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --name PocketTTS-Server \
+  --add-data "static;static" \
+  --add-data "templates;templates" \
+  --add-data "voices;voices" \
+  --add-data "app;app" \
+  server.py
+```
+
+## Troubleshooting
+
+### Model Loading Takes Long
+
+First run downloads the model (~500MB). Subsequent runs use cached model.
+
+**Docker:** Model cache is persisted in a Docker volume.
+
+### Voice Cloning Requires HF Token
+
+For voice cloning, you may need a Hugging Face token:
+
+1. Get token from https://huggingface.co/settings/tokens
+2. Set `HF_TOKEN` environment variable
+
+### Port Already in Use
+
+```bash
+# Use a different port
+python server.py --port 8080
+
+# Or with Docker
+POCKET_TTS_PORT=8080 docker compose up -d
+```
+
+## Credits
+
+- [Pocket-TTS](https://github.com/kyutai-labs/pocket-tts) by Kyutai Labs
+- Community voice contributors (see [voices/credits.txt](voices/credits.txt))
+
+## License
+
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+
+Pocket-TTS is subject to its own license terms.

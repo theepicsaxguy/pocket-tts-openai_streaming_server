@@ -31,7 +31,7 @@ set /p "INPUT_HOST=Host IP [%HOST%]: "
 if not "%INPUT_HOST%"=="" set "HOST=%INPUT_HOST%"
 
 :: 2. Port
-set "PORT=5002"
+set "PORT=49112"
 set /p "INPUT_PORT=Port [%PORT%]: "
 if not "%INPUT_PORT%"=="" set "PORT=%INPUT_PORT%"
 
