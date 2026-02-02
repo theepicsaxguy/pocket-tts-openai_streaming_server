@@ -89,7 +89,7 @@ curl -X POST http://localhost:49112/v1/audio/speech \
 
 ## Code Style
 
-- Linter/formatter: `ruff` (config in `ruff.toml`)
+- Linter/formatter: `ruff` (config in `pyproject.toml`)
 - Line length: 100
 - Single quotes
 
