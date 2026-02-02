@@ -47,6 +47,10 @@ COPY --chown=pockettts:pockettts server.py ./
 # Create logs directory
 RUN mkdir -p /app/logs && chown pockettts:pockettts /app/logs
 
+# Create HuggingFace cache directory (for volume mount)
+RUN mkdir -p /home/pockettts/.cache/huggingface && \
+    chown -R pockettts:pockettts /home/pockettts/.cache
+
 # Switch to non-root user
 USER pockettts
 
