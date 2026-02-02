@@ -1,5 +1,6 @@
 # Dockerfile for PocketTTS OpenAI-Compatible Server
 # Optimized for CPU inference (pocket-tts runs efficiently on CPU)
+# Uses CPU-only PyTorch for smaller image size (~700MB vs ~2GB)
 
 FROM python:3.10-slim AS builder
 
@@ -12,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies
+# Install Python dependencies (requirements.txt specifies CPU-only PyTorch)
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /tmp/requirements.txt

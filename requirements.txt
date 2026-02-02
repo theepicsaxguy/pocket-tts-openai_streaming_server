@@ -1,3 +1,6 @@
+# CPU-only PyTorch (smaller, faster install - this project is CPU-only)
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 # Core dependencies
 flask>=3.0.0
 waitress>=3.0.0
