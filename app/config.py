@@ -43,8 +43,21 @@ class Config:
     # Streaming default
     STREAM_DEFAULT = os.environ.get('POCKET_TTS_STREAM_DEFAULT', 'true').lower() == 'true'
 
-    # Docker detection (check for /.dockerenv or cgroup)
-    IS_DOCKER = os.path.exists('/.dockerenv') or os.path.isfile('/proc/1/cgroup')
+    # Docker detection
+    @staticmethod
+    def _is_docker() -> bool:
+        """Detect if running in a Docker container."""
+        # Check for .dockerenv file (most reliable)
+        if os.path.exists('/.dockerenv'):
+            return True
+        # Check cgroup for docker/containerd references
+        try:
+            with open('/proc/1/cgroup', 'r') as f:
+                return any('docker' in line or 'containerd' in line for line in f)
+        except (FileNotFoundError, PermissionError):
+            return False
+
+    IS_DOCKER = _is_docker.__func__()
 
     # Logging
     LOG_LEVEL = os.environ.get('POCKET_TTS_LOG_LEVEL', 'INFO')
