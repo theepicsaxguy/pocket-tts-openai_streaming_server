@@ -38,7 +38,7 @@ if not "%INPUT_PORT%"=="" set "PORT=%INPUT_PORT%"
 :: 3. Model Path
 set "MODEL_PATH="
 set /p "INPUT_MODEL=Model Path/Variant (Optional, default=built-in): "
-if not "%INPUT_MODEL%"=="" set "MODEL_PATH=--model_path ^"%INPUT_MODEL%^""
+if not "%INPUT_MODEL%"=="" set "MODEL_PATH=--model-path ^"%INPUT_MODEL%^""
 
 :: 4. Voices Directory
 :: Changed: Now remains empty if the user hits ENTER.
@@ -46,7 +46,7 @@ set "VOICES_DIR="
 set /p "INPUT_VOICES=Voices Directory (Optional, leave blank to skip): "
 
 if not "!INPUT_VOICES!"=="" (
-    set "VOICES_DIR=--voices_dir "!INPUT_VOICES!""
+    set "VOICES_DIR=--voices-dir "!INPUT_VOICES!""
 )
 
 :: 5. Streaming Default
