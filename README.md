@@ -2,6 +2,8 @@
 
 An OpenAI-compatible Text-to-Speech API server powered by [Pocket-TTS](https://github.com/kyutai-labs/pocket-tts). Drop-in replacement for OpenAI's TTS API with support for streaming, custom voices, and voice cloning.
 
+Tested and working fully with [WingmanAI by Shipbit](https://www.wingman-ai.com/). Due to low resource use, can be used for real time local text to speech even while playing intensive video games (even in VR!) with WingmanAI.
+
 **Key Features:**
 
 - 🎯 **OpenAI API Compatible** - Works with any OpenAI TTS client
