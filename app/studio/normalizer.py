@@ -108,9 +108,8 @@ def _strip_html_tags(text: str) -> str:
     text = re.sub(r'&quot;', '"', text)
     text = re.sub(r'&#(\d+);', lambda m: chr(int(m.group(1))), text)
 
-    # Clean up multiple whitespace and newlines
+    # Clean up excessive newlines (preserve paragraph breaks)
     text = re.sub(r'\n{3,}', '\n\n', text)
-    text = re.sub(r'[ \t]+', ' ', text)
 
     return text.strip()
 
@@ -401,13 +400,12 @@ def _get_parent_type(tokens, target_token) -> str | None:
 
 
 def _final_clean(text: str, options: CleaningOptions) -> str:
-    """Final whitespace normalization."""
+    """Final whitespace normalization - preserve structure."""
 
-    # Normalize whitespace
-    text = re.sub(r'[ \t]+', ' ', text)
+    # Only normalize excessive newlines (preserve paragraph breaks)
     text = re.sub(r'\n{3,}', '\n\n', text)
 
-    # Clean up spacing around punctuation
+    # Clean up spacing around punctuation (but not within words)
     text = re.sub(r'\s+([.,;:!?])', r'\1', text)
 
     return text.strip()
