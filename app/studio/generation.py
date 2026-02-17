@@ -32,9 +32,45 @@ class GenerationQueue:
         """Start the generation worker thread."""
         self._app = app
         self._running = True
+
+        # Recover any stuck episodes from previous server restart
+        self._recover_stuck_episodes()
+
         self._worker = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
         logger.info('Generation queue worker started')
+
+    def _recover_stuck_episodes(self):
+        """Reset episodes that were stuck in 'generating' status after server restart."""
+        try:
+            db = self._get_db()
+
+            # Find episodes stuck in 'generating' status
+            stuck_episodes = db.execute(
+                "SELECT id FROM episodes WHERE status = 'generating'"
+            ).fetchall()
+
+            if stuck_episodes:
+                logger.info(f'Found {len(stuck_episodes)} stuck episodes, resetting to pending')
+                for ep in stuck_episodes:
+                    episode_id = ep['id']
+                    # Reset episode status to pending
+                    db.execute(
+                        "UPDATE episodes SET status = 'pending', updated_at = datetime('now') WHERE id = ?",
+                        (episode_id,),
+                    )
+                    # Reset all chunks for this episode to pending
+                    db.execute(
+                        "UPDATE chunks SET status = 'pending' WHERE episode_id = ?",
+                        (episode_id,),
+                    )
+                    logger.info(f'Reset stuck episode {episode_id} to pending')
+
+                db.commit()
+
+            db.close()
+        except Exception:
+            logger.exception('Failed to recover stuck episodes')
 
     def stop(self):
         """Stop the generation worker."""

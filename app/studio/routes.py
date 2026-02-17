@@ -689,10 +689,32 @@ def register_routes(bp):
         from app.studio.generation import get_generation_queue
 
         gq = get_generation_queue()
+
+        # Also get database state for more accurate status
+        db = get_db()
+        pending_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM episodes WHERE status = 'pending'"
+        ).fetchone()['cnt']
+        generating_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM episodes WHERE status = 'generating'"
+        ).fetchone()['cnt']
+        ready_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM episodes WHERE status = 'ready'"
+        ).fetchone()['cnt']
+        error_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM episodes WHERE status = 'error'"
+        ).fetchone()['cnt']
+
         return jsonify(
             {
                 'current_episode_id': gq.current_episode_id,
                 'queue_size': gq.queue_size,
+                'db_status': {
+                    'pending': pending_count,
+                    'generating': generating_count,
+                    'ready': ready_count,
+                    'error': error_count,
+                },
             }
         )
 
@@ -774,12 +796,33 @@ def register_routes(bp):
 
     @bp.route('/folders/<folder_id>', methods=['DELETE'])
     def delete_folder(folder_id):
-        """Delete a folder (items inside are unparented, not deleted)."""
+        """Delete a folder and all its contents (episodes audio files are deleted)."""
+        import shutil
+
         db = get_db()
-        # Unparent items
-        db.execute('UPDATE sources SET folder_id = NULL WHERE folder_id = ?', (folder_id,))
-        db.execute('UPDATE episodes SET folder_id = NULL WHERE folder_id = ?', (folder_id,))
+
+        # Get all episodes in the folder to delete their audio files
+        episodes = db.execute(
+            'SELECT id FROM episodes WHERE folder_id = ?',
+            (folder_id,),
+        ).fetchall()
+
+        # Delete audio files for each episode
+        for ep in episodes:
+            audio_dir = os.path.join(Config.STUDIO_AUDIO_DIR, ep['id'])
+            if os.path.isdir(audio_dir):
+                shutil.rmtree(audio_dir, ignore_errors=True)
+
+        # Delete episodes from database
+        db.execute('DELETE FROM episodes WHERE folder_id = ?', (folder_id,))
+
+        # Delete sources in the folder
+        db.execute('DELETE FROM sources WHERE folder_id = ?', (folder_id,))
+
+        # Unparent subfolders (set their parent to NULL, don't delete them)
         db.execute('UPDATE folders SET parent_id = NULL WHERE parent_id = ?', (folder_id,))
+
+        # Delete the folder
         db.execute('DELETE FROM folders WHERE id = ?', (folder_id,))
         db.commit()
         return jsonify({'ok': True})
@@ -963,6 +1006,12 @@ def register_routes(bp):
     def get_playback(episode_id):
         """Get playback state for an episode."""
         db = get_db()
+
+        # Validate episode exists first
+        episode = db.execute('SELECT id FROM episodes WHERE id = ?', (episode_id,)).fetchone()
+        if not episode:
+            return jsonify({'error': 'Episode not found'}), 404
+
         row = db.execute(
             'SELECT * FROM playback_state WHERE episode_id = ?', (episode_id,)
         ).fetchone()
@@ -982,6 +1031,11 @@ def register_routes(bp):
         """Save playback position."""
         data = request.json
         db = get_db()
+
+        # Validate episode exists first
+        episode = db.execute('SELECT id FROM episodes WHERE id = ?', (episode_id,)).fetchone()
+        if not episode:
+            return jsonify({'error': 'Episode not found'}), 404
 
         db.execute(
             'INSERT INTO playback_state (episode_id, current_chunk_index, position_secs, '

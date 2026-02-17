@@ -88,7 +88,18 @@ function initImportView() {
     // Preview clean
     document.getElementById('btn-preview-clean').addEventListener('click', async () => {
         const text = getImportText();
-        if (!text) return toast('Enter some text first', 'error');
+        const activeBtn = document.querySelector('.method-btn.active');
+        const activeTab = activeBtn ? activeBtn.dataset.tab : null;
+
+        if (!text) {
+            if (activeTab === 'url') {
+                return toast('Import the URL first to preview cleaned text', 'info');
+            } else if (activeTab === 'file') {
+                return toast('Upload a file first to preview cleaned text', 'info');
+            } else {
+                return toast('Enter some text first', 'error');
+            }
+        }
 
         const settings = state.get('settings') || {};
         const rule = settings.default_code_rule || 'skip';
