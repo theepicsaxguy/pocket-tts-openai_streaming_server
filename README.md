@@ -58,11 +58,6 @@ pip install -r requirements.txt
 python server.py
 ```
 
-### Windows Executable
-
-1. Download the latest release from [Releases](https://github.com/teddybear082/pocket-tts-openai_streaming_server/releases)
-2. Extract and run `PocketTTS-Server.exe`
-
 ## Studio Workflow
 
 1. **Import** — upload a file, paste a URL, or type/paste text
@@ -223,18 +218,6 @@ python server.py --log-level DEBUG
 pip install ruff
 ruff check .
 ruff format .
-```
-
-### Building Windows EXE
-
-```bash
-pip install pyinstaller
-pyinstaller --onefile --name PocketTTS-Server \
-  --add-data "static;static" \
-  --add-data "templates;templates" \
-  --add-data "voices;voices" \
-  --add-data "app;app" \
-  server.py
 ```
 
 ## Troubleshooting

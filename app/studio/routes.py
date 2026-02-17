@@ -23,10 +23,12 @@ def register_routes(bp):
     def create_source():
         """Upload file, submit URL, or paste text."""
         from app.studio.ingestion import ingest_file, ingest_paste, ingest_url
-        from app.studio.normalizer import normalize_text
+        from app.studio.normalizer import CleaningOptions, normalize_text
 
         db = get_db()
-        code_block_rule = request.form.get('code_block_rule', 'skip')
+
+        # Load cleaning settings from user preferences
+        settings = _get_cleaning_settings(db)
 
         try:
             # File upload
@@ -39,18 +41,29 @@ def register_routes(bp):
             # URL import
             elif request.is_json and request.json.get('url'):
                 data = ingest_url(request.json['url'])
-                code_block_rule = request.json.get('code_block_rule', code_block_rule)
+                req_settings = request.json.get('cleaning_settings', {})
+                settings.update(req_settings)
             # Paste
             elif request.is_json and request.json.get('text'):
                 data = ingest_paste(
                     request.json['text'],
                     title=request.json.get('title'),
                 )
-                code_block_rule = request.json.get('code_block_rule', code_block_rule)
+                req_settings = request.json.get('cleaning_settings', {})
+                settings.update(req_settings)
             else:
                 return jsonify({'error': 'Provide a file, url, or text'}), 400
 
-            cleaned = normalize_text(data['raw_text'], code_block_rule)
+            # Create cleaning options from settings
+            options = CleaningOptions(
+                remove_non_text=settings.get('clean_remove_non_text', False),
+                handle_tables=settings.get('clean_handle_tables', True),
+                speak_urls=settings.get('clean_speak_urls', True),
+                expand_abbreviations=settings.get('clean_expand_abbreviations', True),
+                code_block_rule=settings.get('code_block_rule', 'skip'),
+            )
+
+            cleaned = normalize_text(data['raw_text'], options)
             source_id = str(uuid.uuid4())
 
             db.execute(
@@ -169,15 +182,22 @@ def register_routes(bp):
     @bp.route('/sources/<source_id>/re-clean', methods=['POST'])
     def re_clean_source(source_id):
         """Re-run normalizer on a source with different options."""
-        from app.studio.normalizer import normalize_text
+        from app.studio.normalizer import CleaningOptions, normalize_text
 
         db = get_db()
         source = db.execute('SELECT raw_text FROM sources WHERE id = ?', (source_id,)).fetchone()
         if not source:
             return jsonify({'error': 'Source not found'}), 404
 
-        code_block_rule = request.json.get('code_block_rule', 'skip') if request.is_json else 'skip'
-        cleaned = normalize_text(source['raw_text'], code_block_rule)
+        data = request.json or {}
+        options = CleaningOptions(
+            remove_non_text=data.get('remove_non_text', False),
+            handle_tables=data.get('handle_tables', True),
+            speak_urls=data.get('speak_urls', True),
+            expand_abbreviations=data.get('expand_abbreviations', True),
+            code_block_rule=data.get('code_block_rule', 'skip'),
+        )
+        cleaned = normalize_text(source['raw_text'], options)
 
         db.execute(
             "UPDATE sources SET cleaned_text = ?, updated_at = datetime('now') WHERE id = ?",
@@ -189,14 +209,22 @@ def register_routes(bp):
     @bp.route('/preview-clean', methods=['POST'])
     def preview_clean():
         """Preview normalization without saving."""
-        from app.studio.normalizer import normalize_text
+        from app.studio.normalizer import CleaningOptions, normalize_text
 
         data = request.json
         if not data or not data.get('text'):
             return jsonify({'error': 'Provide text'}), 400
 
-        code_block_rule = data.get('code_block_rule', 'skip')
-        cleaned = normalize_text(data['text'], code_block_rule)
+        # Build cleaning options from request or defaults
+        options = CleaningOptions(
+            remove_non_text=data.get('remove_non_text', False),
+            handle_tables=data.get('handle_tables', True),
+            speak_urls=data.get('speak_urls', True),
+            expand_abbreviations=data.get('expand_abbreviations', True),
+            code_block_rule=data.get('code_block_rule', 'skip'),
+        )
+
+        cleaned = normalize_text(data['text'], options)
         return jsonify({'cleaned_text': cleaned})
 
     # ── Chunking & Episodes ──────────────────────────────────────────────
@@ -243,6 +271,7 @@ def register_routes(bp):
         chunk_strategy = data.get('chunk_strategy', 'paragraph')
         chunk_max_length = data.get('chunk_max_length', 2000)
         code_block_rule = data.get('code_block_rule', 'skip')
+        breathing_intensity = data.get('breathing_intensity', 'normal')
         title = data.get('title', source['title'])
 
         # Chunk the text
@@ -259,8 +288,8 @@ def register_routes(bp):
         episode_id = str(uuid.uuid4())
         db.execute(
             'INSERT INTO episodes (id, source_id, title, voice_id, output_format, '
-            'chunk_strategy, chunk_max_length, code_block_rule, status) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'chunk_strategy, chunk_max_length, code_block_rule, breathing_intensity, status) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             (
                 episode_id,
                 source_id,
@@ -270,6 +299,7 @@ def register_routes(bp):
                 chunk_strategy,
                 chunk_max_length,
                 code_block_rule,
+                breathing_intensity,
                 'pending',
             ),
         )
@@ -413,6 +443,164 @@ def register_routes(bp):
         get_generation_queue().enqueue(episode_id)
         return jsonify({'ok': True, 'status': 'pending'})
 
+    @bp.route('/episodes/<episode_id>/regenerate-with-settings', methods=['POST'])
+    def regenerate_with_settings(episode_id):
+        """Re-generate episode with new settings, with undo support."""
+        import shutil
+        import uuid
+
+        from app.studio.chunking import chunk_text
+        from app.studio.generation import get_generation_queue
+
+        db = get_db()
+        data = request.json or {}
+
+        # Get episode and source
+        episode = db.execute(
+            'SELECT e.*, s.cleaned_text FROM episodes e '
+            'JOIN sources s ON e.source_id = s.id WHERE e.id = ?',
+            (episode_id,),
+        ).fetchone()
+
+        if not episode:
+            return jsonify({'error': 'Episode not found'}), 404
+
+        # Create backup before deleting
+        backup_id = str(uuid.uuid4())
+        backup_dir = os.path.join(Config.STUDIO_AUDIO_DIR, f'.backup_{backup_id}')
+        audio_dir = os.path.join(Config.STUDIO_AUDIO_DIR, episode_id)
+
+        if os.path.exists(audio_dir):
+            shutil.copytree(audio_dir, backup_dir)
+            db.execute(
+                'INSERT INTO undo_buffer (id, episode_id, backup_audio_dir, expires_at) '
+                "VALUES (?, ?, ?, datetime('now', '+2 minutes'))",
+                (backup_id, episode_id, backup_dir),
+            )
+
+        # Delete current audio
+        _delete_episode_audio(episode_id)
+
+        # Get new settings
+        voice_id = data.get('voice_id', episode['voice_id'])
+        output_format = data.get('output_format', episode['output_format'])
+        chunk_strategy = data.get('chunk_strategy', episode['chunk_strategy'])
+        chunk_max_length = data.get('chunk_max_length', episode['chunk_max_length'])
+        code_block_rule = data.get('code_block_rule', episode['code_block_rule'])
+        breathing_intensity = data.get('breathing_intensity', episode['breathing_intensity'])
+
+        # Re-chunk with new settings
+        chunks = chunk_text(
+            episode['cleaned_text'],
+            strategy=chunk_strategy,
+            max_chars=chunk_max_length,
+        )
+
+        if not chunks:
+            return jsonify({'error': 'Text produced no chunks'}), 400
+
+        # Delete old chunks
+        db.execute('DELETE FROM chunks WHERE episode_id = ?', (episode_id,))
+
+        # Create new chunks
+        for chunk in chunks:
+            chunk_id = str(uuid.uuid4())
+            db.execute(
+                'INSERT INTO chunks (id, episode_id, chunk_index, text, status) '
+                'VALUES (?, ?, ?, ?, ?)',
+                (chunk_id, episode_id, chunk['index'], chunk['text'], 'pending'),
+            )
+
+        # Update episode settings
+        db.execute(
+            'UPDATE episodes SET voice_id = ?, output_format = ?, chunk_strategy = ?, '
+            'chunk_max_length = ?, code_block_rule = ?, breathing_intensity = ?, '
+            "status = 'pending', total_duration_secs = NULL, updated_at = datetime('now') "
+            'WHERE id = ?',
+            (
+                voice_id,
+                output_format,
+                chunk_strategy,
+                chunk_max_length,
+                code_block_rule,
+                breathing_intensity,
+                episode_id,
+            ),
+        )
+        db.commit()
+
+        # Enqueue for generation
+        get_generation_queue().enqueue(episode_id)
+
+        return jsonify(
+            {'ok': True, 'status': 'pending', 'chunk_count': len(chunks), 'undo_id': backup_id}
+        )
+
+    @bp.route('/undo/<undo_id>', methods=['POST'])
+    def undo_regeneration(undo_id):
+        """Undo an episode regeneration within the grace period."""
+        import shutil
+
+        db = get_db()
+
+        # Get undo record
+        undo = db.execute(
+            'SELECT * FROM undo_buffer WHERE id = ? AND expires_at > datetime("now")', (undo_id,)
+        ).fetchone()
+
+        if not undo:
+            return jsonify({'error': 'Undo expired or not found'}), 404
+
+        episode_id = undo['episode_id']
+        backup_dir = undo['backup_audio_dir']
+        audio_dir = os.path.join(Config.STUDIO_AUDIO_DIR, episode_id)
+
+        # Restore backup
+        if os.path.exists(audio_dir):
+            shutil.rmtree(audio_dir)
+        if os.path.exists(backup_dir):
+            shutil.move(backup_dir, audio_dir)
+
+        # Delete undo record
+        db.execute('DELETE FROM undo_buffer WHERE id = ?', (undo_id,))
+        db.commit()
+
+        return jsonify({'ok': True})
+
+    @bp.route('/episodes/bulk-move', methods=['POST'])
+    def bulk_move_episodes():
+        """Move multiple episodes to a folder."""
+        data = request.json or {}
+        episode_ids = data.get('episode_ids', [])
+        folder_id = data.get('folder_id')
+
+        if not episode_ids:
+            return jsonify({'error': 'No episodes specified'}), 400
+
+        db = get_db()
+        for episode_id in episode_ids:
+            db.execute('UPDATE episodes SET folder_id = ? WHERE id = ?', (folder_id, episode_id))
+        db.commit()
+
+        return jsonify({'ok': True, 'moved': len(episode_ids)})
+
+    @bp.route('/episodes/bulk-delete', methods=['POST'])
+    def bulk_delete_episodes():
+        """Delete multiple episodes."""
+        data = request.json or {}
+        episode_ids = data.get('episode_ids', [])
+
+        if not episode_ids:
+            return jsonify({'error': 'No episodes specified'}), 400
+
+        db = get_db()
+        for episode_id in episode_ids:
+            _delete_episode_audio(episode_id)
+            db.execute('DELETE FROM episodes WHERE id = ?', (episode_id,))
+        db.commit()
+
+        return jsonify({'ok': True, 'deleted': len(episode_ids)})
+
     @bp.route('/episodes/<episode_id>/chunks/<int:chunk_index>/regenerate', methods=['POST'])
     def regenerate_chunk(episode_id, chunk_index):
         """Regenerate a single chunk."""
@@ -501,10 +689,32 @@ def register_routes(bp):
         from app.studio.generation import get_generation_queue
 
         gq = get_generation_queue()
+
+        # Also get database state for more accurate status
+        db = get_db()
+        pending_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM episodes WHERE status = 'pending'"
+        ).fetchone()['cnt']
+        generating_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM episodes WHERE status = 'generating'"
+        ).fetchone()['cnt']
+        ready_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM episodes WHERE status = 'ready'"
+        ).fetchone()['cnt']
+        error_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM episodes WHERE status = 'error'"
+        ).fetchone()['cnt']
+
         return jsonify(
             {
                 'current_episode_id': gq.current_episode_id,
                 'queue_size': gq.queue_size,
+                'db_status': {
+                    'pending': pending_count,
+                    'generating': generating_count,
+                    'ready': ready_count,
+                    'error': error_count,
+                },
             }
         )
 
@@ -586,15 +796,102 @@ def register_routes(bp):
 
     @bp.route('/folders/<folder_id>', methods=['DELETE'])
     def delete_folder(folder_id):
-        """Delete a folder (items inside are unparented, not deleted)."""
+        """Delete a folder and all its contents (episodes audio files are deleted)."""
+        import shutil
+
         db = get_db()
-        # Unparent items
-        db.execute('UPDATE sources SET folder_id = NULL WHERE folder_id = ?', (folder_id,))
-        db.execute('UPDATE episodes SET folder_id = NULL WHERE folder_id = ?', (folder_id,))
+
+        # Get all episodes in the folder to delete their audio files
+        episodes = db.execute(
+            'SELECT id FROM episodes WHERE folder_id = ?',
+            (folder_id,),
+        ).fetchall()
+
+        # Delete audio files for each episode
+        for ep in episodes:
+            audio_dir = os.path.join(Config.STUDIO_AUDIO_DIR, ep['id'])
+            if os.path.isdir(audio_dir):
+                shutil.rmtree(audio_dir, ignore_errors=True)
+
+        # Delete episodes from database
+        db.execute('DELETE FROM episodes WHERE folder_id = ?', (folder_id,))
+
+        # Delete sources in the folder
+        db.execute('DELETE FROM sources WHERE folder_id = ?', (folder_id,))
+
+        # Unparent subfolders (set their parent to NULL, don't delete them)
         db.execute('UPDATE folders SET parent_id = NULL WHERE parent_id = ?', (folder_id,))
+
+        # Delete the folder
         db.execute('DELETE FROM folders WHERE id = ?', (folder_id,))
         db.commit()
         return jsonify({'ok': True})
+
+    @bp.route('/folders/<folder_id>/playlist', methods=['POST'])
+    def start_folder_playlist(folder_id):
+        """Start playing all episodes in a folder as a playlist."""
+        db = get_db()
+
+        # Get all ready episodes in folder, ordered by creation date
+        episodes = db.execute(
+            'SELECT e.id, e.title, e.total_duration_secs, e.voice_id '
+            'FROM episodes e '
+            'WHERE e.folder_id = ? AND e.status = ? '
+            'ORDER BY e.created_at ASC',
+            (folder_id, 'ready'),
+        ).fetchall()
+
+        if not episodes:
+            return jsonify({'error': 'No ready episodes in folder'}), 404
+
+        # Build playlist queue with chunks
+        queue = []
+        for ep in episodes:
+            chunks = db.execute(
+                'SELECT chunk_index, text, duration_secs '
+                'FROM chunks WHERE episode_id = ? AND status = ? ORDER BY chunk_index',
+                (ep['id'], 'ready'),
+            ).fetchall()
+
+            for chunk in chunks:
+                queue.append(
+                    {
+                        'episode_id': ep['id'],
+                        'episode_title': ep['title'],
+                        'chunk_index': chunk['chunk_index'],
+                        'text': chunk['text'][:200] + '...'
+                        if len(chunk['text']) > 200
+                        else chunk['text'],
+                        'duration_secs': chunk['duration_secs'],
+                        'voice_id': ep['voice_id'],
+                    }
+                )
+
+        return jsonify(
+            {
+                'folder_id': folder_id,
+                'queue': [dict(q) for q in queue],
+                'total_items': len(queue),
+                'total_episodes': len(episodes),
+            }
+        )
+
+    @bp.route('/folders/<folder_id>/episodes', methods=['GET'])
+    def get_folder_episodes(folder_id):
+        """Get all episodes in a folder for playlist building."""
+        db = get_db()
+
+        episodes = db.execute(
+            'SELECT e.id, e.title, e.status, e.total_duration_secs, e.voice_id, '
+            'p.percent_listened, p.current_chunk_index '
+            'FROM episodes e '
+            'LEFT JOIN playback_state p ON e.id = p.episode_id '
+            'WHERE e.folder_id = ? '
+            'ORDER BY e.created_at ASC',
+            (folder_id,),
+        ).fetchall()
+
+        return jsonify([dict(ep) for ep in episodes])
 
     @bp.route('/sources/<source_id>/move', methods=['PUT'])
     def move_source(source_id):
@@ -709,6 +1006,12 @@ def register_routes(bp):
     def get_playback(episode_id):
         """Get playback state for an episode."""
         db = get_db()
+
+        # Validate episode exists first
+        episode = db.execute('SELECT id FROM episodes WHERE id = ?', (episode_id,)).fetchone()
+        if not episode:
+            return jsonify({'error': 'Episode not found'}), 404
+
         row = db.execute(
             'SELECT * FROM playback_state WHERE episode_id = ?', (episode_id,)
         ).fetchone()
@@ -728,6 +1031,11 @@ def register_routes(bp):
         """Save playback position."""
         data = request.json
         db = get_db()
+
+        # Validate episode exists first
+        episode = db.execute('SELECT id FROM episodes WHERE id = ?', (episode_id,)).fetchone()
+        if not episode:
+            return jsonify({'error': 'Episode not found'}), 404
 
         db.execute(
             'INSERT INTO playback_state (episode_id, current_chunk_index, position_secs, '
@@ -772,6 +1080,13 @@ def register_routes(bp):
         return jsonify({'ok': True})
 
     # ── Helpers ──────────────────────────────────────────────────────────
+
+    def _get_cleaning_settings(db):
+        """Get user's cleaning settings from database."""
+        rows = db.execute(
+            "SELECT key, value FROM settings WHERE key LIKE 'clean_%' OR key = 'code_block_rule'"
+        ).fetchall()
+        return {r['key']: r['value'] for r in rows}
 
     def _delete_episode_audio(episode_id):
         """Delete all audio files for an episode."""

@@ -5,7 +5,8 @@
 
 import * as api from './api.js';
 import * as state from './state.js';
-import { toast, confirm as confirmDialog } from './main.js';
+import { toast, confirm as confirmDialog, showUndoToast } from './main.js';
+import { loadEpisode } from './player.js';
 
 const SVG_FOLDER = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
     <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
@@ -25,6 +26,224 @@ const SVG_EPISODE = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 </svg>`;
 
 let activeContextMenu = null;
+let selectedItems = new Set();
+let isBulkMode = false;
+
+// ── Touch Gestures & Swipe Actions ────────────────────────────────
+
+function initTouchGestures() {
+    const tree = document.getElementById('library-tree');
+    if (!tree) return;
+    
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchedElement = null;
+    
+    tree.addEventListener('touchstart', (e) => {
+        const item = e.target.closest('.tree-item');
+        if (!item) return;
+        
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchedElement = item;
+    }, { passive: true });
+    
+    tree.addEventListener('touchend', (e) => {
+        if (!touchedElement) return;
+        
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        
+        const diffX = touchEndX - touchStartX;
+        const diffY = touchEndY - touchStartY;
+        
+        // Horizontal swipe
+        if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY) * 2) {
+            const type = touchedElement.dataset.type;
+            const id = touchedElement.dataset.id;
+            
+            if (diffX > 0) {
+                // Swipe right - show actions
+                showSwipeActions(touchedElement, type, id);
+            } else {
+                // Swipe left - quick delete or select
+                handleSwipeLeft(touchedElement, type, id);
+            }
+        }
+        
+        touchedElement = null;
+    }, { passive: true });
+    
+    // Long press for context menu on mobile
+    let longPressTimer = null;
+    
+    tree.addEventListener('touchstart', (e) => {
+        const item = e.target.closest('.tree-item');
+        if (!item) return;
+        
+        longPressTimer = setTimeout(() => {
+            const type = item.dataset.type;
+            const id = item.dataset.id;
+            
+            if (type === 'episode') {
+                showContextMenuForItem(item, type, id);
+            } else if (type === 'source') {
+                showContextMenuForItem(item, type, id);
+            }
+        }, 500);
+    }, { passive: true });
+    
+    tree.addEventListener('touchend', () => {
+        clearTimeout(longPressTimer);
+    });
+    
+    tree.addEventListener('touchmove', () => {
+        clearTimeout(longPressTimer);
+    }, { passive: true });
+}
+
+function showSwipeActions(item, type, id) {
+    if (type === 'episode') {
+        window.openBottomSheet('Episode Actions', [
+            { 
+                label: 'Play', 
+                icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
+                action: () => { window.location.hash = `#episode/${id}`; }
+            },
+            { sep: true },
+            { 
+                label: 'Move to Folder', 
+                icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>`,
+                action: () => { /* TODO: Show folder picker */ }
+            },
+            { 
+                label: 'Rename', 
+                icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+                action: () => startRenameFromId(type, id)
+            },
+        ]);
+    } else if (type === 'source') {
+        window.openBottomSheet('Source Actions', [
+            { 
+                label: 'Open', 
+                icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+                action: () => { window.location.hash = `#source/${id}`; }
+            },
+            { sep: true },
+            { 
+                label: 'Rename', 
+                icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+                action: () => startRenameFromId(type, id)
+            },
+        ]);
+    }
+}
+
+function handleSwipeLeft(item, type, id) {
+    if (type === 'episode') {
+        doDeleteEpisode(id);
+    } else if (type === 'source') {
+        doDeleteSource(id);
+    } else if (type === 'folder') {
+        doDeleteFolder(id);
+    }
+}
+
+async function startRenameFromId(type, id) {
+    // This is a simplified version - in production you'd fetch the item first
+    // For now, just navigate to the item
+    if (type === 'episode') {
+        window.location.hash = `#episode/${id}`;
+    } else if (type === 'source') {
+        window.location.hash = `#source/${id}`;
+    }
+}
+
+function showContextMenuForItem(item, type, id) {
+    if (type === 'episode') {
+        showContextMenu({ clientX: item.getBoundingClientRect().left + 50, clientY: item.getBoundingClientRect().top }, [
+            { label: 'Play', action: () => { window.location.hash = `#episode/${id}`; } },
+            { label: 'Rename', action: () => startRenameFromId(type, id) },
+            { sep: true },
+            { label: 'Delete', danger: true, action: () => doDeleteEpisode(id) },
+        ]);
+    } else if (type === 'source') {
+        showContextMenu({ clientX: item.getBoundingClientRect().left + 50, clientY: item.getBoundingClientRect().top }, [
+            { label: 'Open', action: () => { window.location.hash = `#source/${id}`; } },
+            { label: 'Rename', action: () => startRenameFromId(type, id) },
+            { sep: true },
+            { label: 'Delete', danger: true, action: () => doDeleteSource(id) },
+        ]);
+    }
+}
+
+// ── Bulk Selection Mode ───────────────────────────────────────────
+
+function initBulkSelection() {
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            exitBulkMode();
+        }
+    });
+    
+    // Click on empty space to exit
+    document.getElementById('library-tree')?.addEventListener('click', (e) => {
+        if (e.target.id === 'library-tree' || e.target.classList.contains('tree-wrapper')) {
+            exitBulkMode();
+        }
+    });
+}
+
+function enterBulkMode() {
+    isBulkMode = true;
+    selectedItems.clear();
+    
+    document.body.classList.add('bulk-selection-mode');
+    
+    // Show bulk actions bar if exists
+    const bulkBar = document.getElementById('bulk-actions-bar');
+    if (bulkBar) {
+        bulkBar.classList.remove('hidden');
+    }
+}
+
+function exitBulkMode() {
+    isBulkMode = false;
+    selectedItems.clear();
+    
+    document.body.classList.remove('bulk-selection-mode');
+    
+    // Hide bulk actions bar
+    const bulkBar = document.getElementById('bulk-actions-bar');
+    if (bulkBar) {
+        bulkBar.classList.add('hidden');
+    }
+    
+    // Remove selection styling
+    document.querySelectorAll('.tree-item.selected').forEach(el => {
+        el.classList.remove('selected');
+    });
+}
+
+function toggleItemSelection(type, id) {
+    const key = `${type}:${id}`;
+    
+    if (selectedItems.has(key)) {
+        selectedItems.delete(key);
+    } else {
+        selectedItems.add(key);
+    }
+    
+    const item = document.querySelector(`.tree-item[data-type="${type}"][data-id="${id}"]`);
+    if (item) {
+        item.classList.toggle('selected', selectedItems.has(key));
+    }
+    
+    // Show bulk bar when items selected
+    if (selectedItems.size > 0) {
+        enterBulkMode();
+    }
+}
 
 export async function refreshTree() {
     try {
@@ -127,6 +346,8 @@ function renderFolder(folder) {
     item.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         showContextMenu(e, [
+            { label: 'Play All', action: () => playFolderPlaylist(folder.id) },
+            { sep: true },
             { label: 'Rename', action: () => startRenameFolder(item, folder) },
             { label: 'New Subfolder', action: () => createSubfolder(folder.id) },
             { sep: true },
@@ -452,9 +673,89 @@ function handleDrop(e, folderId) {
     } catch {}
 }
 
+// ── Bulk Operations ────────────────────────────────────────────────────
+
+async function doBulkMove() {
+    const episodeIds = getSelectedEpisodeIds();
+    if (!episodeIds.length) return;
+    
+    // Show folder picker (simplified - just create a root folder for now)
+    // In production, you'd show a modal with folder tree
+    const folders = state.get('libraryTree')?.folders || [];
+    
+    if (folders.length === 0) {
+        toast('No folders available. Create a folder first.', 'info');
+        return;
+    }
+    
+    // For now, just move to first folder
+    // TODO: Show folder picker modal
+    try {
+        await api.bulkMoveEpisodes(episodeIds, folders[0].id);
+        toast(`Moved ${episodeIds.length} episode(s)`, 'success');
+        exitBulkMode();
+        refreshTree();
+    } catch (e) {
+        toast(`Failed to move: ${e.message}`, 'error');
+    }
+}
+
+async function doBulkDelete() {
+    const episodeIds = getSelectedEpisodeIds();
+    if (!episodeIds.length) return;
+    
+    const ok = await confirmDialog('Delete Episodes', `Delete ${episodeIds.length} episode(s)?`);
+    if (!ok) return;
+    
+    try {
+        await api.bulkDeleteEpisodes(episodeIds);
+        toast(`Deleted ${episodeIds.length} episode(s)`, 'info');
+        exitBulkMode();
+        refreshTree();
+    } catch (e) {
+        toast(`Failed to delete: ${e.message}`, 'error');
+    }
+}
+
+function getSelectedEpisodeIds() {
+    const ids = [];
+    for (const item of selectedItems) {
+        if (item.startsWith('episode:')) {
+            ids.push(item.split(':')[1]);
+        }
+    }
+    return ids;
+}
+
+// ── Folder Playlist ─────────────────────────────────────────────────
+
+async function playFolderPlaylist(folderId) {
+    try {
+        const result = await api.playFolder(folderId);
+        
+        if (result.episodes && result.episodes.length > 0) {
+            // Load first episode
+            await loadEpisode(result.episodes[0].id, 0);
+            toast(`Playing folder playlist (${result.episodes.length} episodes)`, 'success');
+        } else {
+            toast('No episodes in folder', 'info');
+        }
+    } catch (e) {
+        toast(`Failed to play: ${e.message}`, 'error');
+    }
+}
+
 // ── Init ────────────────────────────────────────────────────────────
 
 export function init() {
+    initTouchGestures();
+    initBulkSelection();
+    
+    // Bulk action buttons
+    document.getElementById('bulk-move-btn')?.addEventListener('click', doBulkMove);
+    document.getElementById('bulk-delete-btn')?.addEventListener('click', doBulkDelete);
+    document.getElementById('bulk-close-btn')?.addEventListener('click', exitBulkMode);
+    
     document.getElementById('btn-new-folder').addEventListener('click', async () => {
         await api.createFolder('New Folder');
         refreshTree();

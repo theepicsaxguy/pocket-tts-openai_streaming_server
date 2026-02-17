@@ -89,10 +89,9 @@ def _chunk_by_paragraph(text: str, max_chars: int) -> list[tuple[str, str]]:
 
 
 def _chunk_by_sentence(text: str, max_chars: int) -> list[tuple[str, str]]:
-    """Split on sentence boundaries, merge to max_chars."""
+    """Split on sentence boundaries - one sentence per chunk."""
     sentences = re.split(r'(?<=[.!?])\s+', text)
     chunks = []
-    current = ''
     chunk_num = 0
 
     for sentence in sentences:
@@ -100,18 +99,9 @@ def _chunk_by_sentence(text: str, max_chars: int) -> list[tuple[str, str]]:
         if not sentence:
             continue
 
-        if current and len(current) + len(sentence) + 1 > max_chars:
-            chunk_num += 1
-            chunks.append((current, f'Part {chunk_num}'))
-            current = sentence
-        elif not current:
-            current = sentence
-        else:
-            current += ' ' + sentence
-
-    if current.strip():
+        # Each sentence becomes its own chunk (no merging)
         chunk_num += 1
-        chunks.append((current, f'Part {chunk_num}'))
+        chunks.append((sentence, f'Part {chunk_num}'))
 
     return chunks
 

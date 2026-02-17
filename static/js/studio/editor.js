@@ -5,7 +5,7 @@
 
 import * as api from './api.js';
 import * as state from './state.js';
-import { toast, confirm as confirmDialog } from './main.js';
+import { toast, confirm as confirmDialog, showUndoToast } from './main.js';
 import { refreshTree } from './library.js';
 import { loadEpisode as playerLoadEpisode } from './player.js';
 
@@ -88,9 +88,21 @@ function initImportView() {
     // Preview clean
     document.getElementById('btn-preview-clean').addEventListener('click', async () => {
         const text = getImportText();
-        if (!text) return toast('Enter some text first', 'error');
+        const activeBtn = document.querySelector('.method-btn.active');
+        const activeTab = activeBtn ? activeBtn.dataset.tab : null;
 
-        const rule = document.getElementById('import-code-rule').value;
+        if (!text) {
+            if (activeTab === 'url') {
+                return toast('Import the URL first to preview cleaned text', 'info');
+            } else if (activeTab === 'file') {
+                return toast('Upload a file first to preview cleaned text', 'info');
+            } else {
+                return toast('Enter some text first', 'error');
+            }
+        }
+
+        const settings = state.get('settings') || {};
+        const rule = settings.default_code_rule || 'skip';
         try {
             const result = await api.previewClean(text, rule);
             document.getElementById('preview-raw').textContent = text.substring(0, 5000);
@@ -127,7 +139,8 @@ function getImportText() {
 async function doImport() {
     const activeBtn = document.querySelector('.method-btn.active');
     const activeTab = activeBtn ? activeBtn.dataset.tab : 'paste';
-    const rule = document.getElementById('import-code-rule').value;
+    const settings = state.get('settings') || {};
+    const rule = settings.default_code_rule || 'skip';
 
     try {
         let result;
@@ -196,6 +209,9 @@ async function loadReview(sourceId) {
         if (settings.default_format) {
             document.getElementById('review-format').value = settings.default_format;
         }
+        if (settings.default_breathing) {
+            document.getElementById('review-breathing').value = settings.default_breathing;
+        }
 
         // Hide chunk preview
         document.getElementById('review-chunk-preview').classList.add('hidden');
@@ -244,6 +260,7 @@ function initReviewView() {
             output_format: document.getElementById('review-format').value,
             chunk_strategy: document.getElementById('review-strategy').value,
             chunk_max_length: parseInt(document.getElementById('review-max-chars').value),
+            breathing_intensity: document.getElementById('review-breathing').value,
         };
 
         try {
@@ -390,8 +407,11 @@ function renderEpisode(episode) {
     const duration = episode.total_duration_secs
         ? formatTime(episode.total_duration_secs)
         : '—';
+    
+    // Show generation settings
+    const settings = `Voice: ${episode.voice_id} · ${episode.output_format || 'wav'} · Breathing: ${episode.breathing_intensity || 'normal'}`;
     document.getElementById('episode-meta').textContent =
-        `${episode.voice_id} · ${episode.chunk_strategy} · ${duration} · ${new Date(episode.created_at).toLocaleDateString()}`;
+        `${settings} · ${episode.chunk_strategy || 'auto'} · ${duration} · ${new Date(episode.created_at).toLocaleDateString()}`;
 
     // Progress bar
     const readyChunks = episode.chunks?.filter(c => c.status === 'ready').length || 0;
@@ -399,6 +419,34 @@ function renderEpisode(episode) {
     const pct = totalChunks > 0 ? (readyChunks / totalChunks) * 100 : 0;
     document.getElementById('episode-progress-fill').style.width = `${pct}%`;
     document.getElementById('episode-progress-text').textContent = `${Math.round(pct)}%`;
+
+    // Generation status detail
+    const genStageEl = document.getElementById('gen-stage');
+    const genChunkInfoEl = document.getElementById('gen-chunk-info');
+    
+    if (episode.status === 'pending') {
+        genStageEl.textContent = 'Waiting in queue...';
+        genStageEl.className = 'gen-stage';
+        genChunkInfoEl.textContent = `${totalChunks} chunks to generate · ${episode.voice_id}`;
+    } else if (episode.status === 'generating') {
+        genStageEl.textContent = 'Generating audio...';
+        genStageEl.className = 'gen-stage generating';
+        // Find current chunk being generated
+        const generatingChunk = episode.chunks?.find(c => c.status === 'generating');
+        if (generatingChunk) {
+            genChunkInfoEl.textContent = `Processing chunk ${generatingChunk.chunk_index + 1}/${totalChunks} · ${readyChunks + 1} of ${totalChunks} done`;
+        } else {
+            genChunkInfoEl.textContent = `${readyChunks} of ${totalChunks} chunks ready`;
+        }
+    } else if (episode.status === 'ready') {
+        genStageEl.textContent = 'Complete!';
+        genStageEl.className = 'gen-stage ready';
+        genChunkInfoEl.textContent = `${totalChunks} chunks · ${duration} · ${episode.voice_id}`;
+    } else if (episode.status === 'error') {
+        genStageEl.textContent = 'Generation failed';
+        genStageEl.className = 'gen-stage error';
+        genChunkInfoEl.textContent = '';
+    }
 
     // Chunks grid
     const container = document.getElementById('episode-chunks');
@@ -412,12 +460,15 @@ function renderEpisode(episode) {
             card.classList.add('playing');
         }
 
+        const isLongText = chunk.text.length > 150;
+        
         card.innerHTML = `
             <div class="chunk-card-header">
                 <span class="chunk-num">${chunk.chunk_index + 1}</span>
                 <span class="chunk-status ${chunk.status}">${chunk.status}</span>
             </div>
-            <div class="chunk-text">${escapeHtml(chunk.text.substring(0, 150))}${chunk.text.length > 150 ? '...' : ''}</div>
+            <div class="chunk-text" data-full-text="${escapeHtml(chunk.text)}">${escapeHtml(chunk.text.substring(0, 150))}${isLongText ? '...' : ''}</div>
+            ${isLongText ? '<div class="chunk-expand-indicator">Click to expand</div>' : ''}
             <div class="chunk-footer">
                 <span class="chunk-duration">${chunk.duration_secs ? formatTime(chunk.duration_secs) : '—'}</span>
                 <div class="chunk-actions">
@@ -439,6 +490,22 @@ function renderEpisode(episode) {
                 </div>
             </div>
         `;
+
+        // Expand/collapse on click
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.chunk-btn')) return;
+            card.classList.toggle('expanded');
+            const expandIndicator = card.querySelector('.chunk-expand-indicator');
+            if (expandIndicator) {
+                expandIndicator.textContent = card.classList.contains('expanded') ? 'Click to collapse' : 'Click to expand';
+            }
+            const textEl = card.querySelector('.chunk-text');
+            if (card.classList.contains('expanded')) {
+                textEl.textContent = chunk.text;
+            } else {
+                textEl.textContent = escapeHtml(chunk.text.substring(0, 150)) + (chunk.text.length > 150 ? '...' : '');
+            }
+        });
 
         // Play handler
         const playBtn = card.querySelector('.play-chunk');
@@ -472,6 +539,87 @@ function renderEpisode(episode) {
 }
 
 function initEpisodeView() {
+    // Regenerate with settings modal
+    const regenModal = document.getElementById('regen-settings-modal');
+    let currentRegenEpisodeId = null;
+    
+    document.getElementById('btn-regenerate-settings').addEventListener('click', async () => {
+        const id = state.get('currentEpisodeId');
+        if (!id) return;
+        
+        currentRegenEpisodeId = id;
+        
+        // Populate voice select
+        const voiceSelect = document.getElementById('regen-voice');
+        voiceSelect.innerHTML = '<option value="">Same as before</option>';
+        
+        const voices = state.get('voices') || await api.listVoices();
+        state.set('voices', voices);
+        
+        for (const v of voices) {
+            const opt = document.createElement('option');
+            opt.value = v.voice_id;
+            opt.textContent = v.name || v.voice_id;
+            voiceSelect.appendChild(opt);
+        }
+        
+        regenModal.classList.remove('hidden');
+    });
+    
+    document.getElementById('regen-settings-close').addEventListener('click', () => {
+        regenModal.classList.add('hidden');
+    });
+    
+    document.getElementById('regen-settings-cancel').addEventListener('click', () => {
+        regenModal.classList.add('hidden');
+    });
+    
+    document.getElementById('regen-settings-confirm').addEventListener('click', async () => {
+        if (!currentRegenEpisodeId) return;
+        
+        const voiceId = document.getElementById('regen-voice').value;
+        const format = document.getElementById('regen-format').value;
+        const strategy = document.getElementById('regen-strategy').value;
+        
+        const settings = {};
+        if (voiceId) settings.voice_id = voiceId;
+        if (format) settings.format = format;
+        if (strategy) settings.chunk_strategy = strategy;
+        
+        try {
+            const result = await api.regenerateWithSettings(currentRegenEpisodeId, settings);
+            
+            regenModal.classList.add('hidden');
+            
+            if (result.undo_id) {
+                showUndoToast(
+                    'Episode queued for regeneration',
+                    async () => {
+                        try {
+                            await api.undoRegeneration(result.undo_id);
+                            toast('Regeneration undone', 'info');
+                            loadEpisode(currentRegenEpisodeId);
+                        } catch (e) {
+                            toast(`Undo failed: ${e.message}`, 'error');
+                        }
+                    },
+                    120000  // 2 minutes
+                );
+            }
+            
+            loadEpisode(currentRegenEpisodeId);
+        } catch (e) {
+            toast(`Failed: ${e.message}`, 'error');
+        }
+    });
+    
+    // Close modal on overlay click
+    regenModal.addEventListener('click', (e) => {
+        if (e.target === regenModal) {
+            regenModal.classList.add('hidden');
+        }
+    });
+
     document.getElementById('btn-regenerate-episode').addEventListener('click', async () => {
         const id = state.get('currentEpisodeId');
         const ok = await confirmDialog('Regenerate Episode', 'Regenerate all chunks? This will delete existing audio.');
@@ -565,6 +713,18 @@ export function route(hash) {
         loadEpisode(parts[1]);
     } else if (parts[0] === 'now-playing') {
         loadNowPlaying();
+    } else if (parts[0] === 'library') {
+        // Show library (on mobile, open the sidebar drawer)
+        state.set('currentView', 'library');
+        showView('import');
+        refreshTree();
+        // Trigger sidebar open on mobile
+        window.dispatchEvent(new CustomEvent('open-sidebar'));
+    } else if (parts[0] === 'settings') {
+        // Show settings (open settings drawer)
+        state.set('currentView', 'settings');
+        showView('import');
+        window.dispatchEvent(new CustomEvent('open-settings'));
     } else {
         state.set('currentView', 'import');
         showView('import');
