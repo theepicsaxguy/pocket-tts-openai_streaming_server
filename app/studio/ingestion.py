@@ -108,7 +108,7 @@ def ingest_url(url: str) -> dict:
             include_tables=True,
             output_format='txt',
         )
-        logger.info(f'Extracted text from HTML using trafilatura')
+        logger.info('Extracted text from HTML using trafilatura')
 
     if not raw_text:
         raise ValueError('Could not extract readable text from URL.')
@@ -162,9 +162,20 @@ def _extract_title(text: str, fallback: str) -> str:
         if not line:
             continue
         if line.startswith('#'):
-            return line.lstrip('#').strip()
-        return line[:80]
+            return _clean_title(line.lstrip('#').strip())
+        return _clean_title(line[:80])
     return Path(fallback).stem if fallback else 'Untitled'
+
+
+def _clean_title(title: str) -> str:
+    """Remove non-text characters from title."""
+    import re
+
+    # Keep only alphanumeric, spaces, and basic punctuation
+    title = re.sub(r'[^\w\s\-.,!?\'"]', '', title)
+    # Collapse multiple spaces
+    title = re.sub(r'\s+', ' ', title)
+    return title.strip()
 
 
 def _extract_title_from_url(url: str, text: str) -> str:
@@ -178,5 +189,5 @@ def _extract_title_from_url(url: str, text: str) -> str:
     parsed = urlparse(url)
     path = parsed.path.strip('/')
     if path:
-        return path.split('/')[-1].replace('-', ' ').replace('_', ' ').title()[:80]
+        return _clean_title(path.split('/')[-1].replace('-', ' ').replace('_', ' ').title()[:80])
     return parsed.netloc
