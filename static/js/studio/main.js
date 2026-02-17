@@ -332,6 +332,73 @@ function initRippleEffect() {
     document.head.appendChild(style);
 }
 
+// ── Sidebar & Drawer Toggle (Tablet/Mobile) ────────────────────────
+
+function initSidebarToggle() {
+    const hamburgerBtn = document.getElementById('btn-hamburger');
+    const sidebar = document.getElementById('sidebar');
+    const drawer = document.getElementById('drawer');
+    
+    if (!hamburgerBtn) return;
+    
+    // Create overlay if needed
+    let sidebarOverlay = document.querySelector('.sidebar-overlay');
+    if (!sidebarOverlay) {
+        sidebarOverlay = document.createElement('div');
+        sidebarOverlay.className = 'sidebar-overlay';
+        document.body.appendChild(sidebarOverlay);
+    }
+    
+    function closeAll() {
+        sidebar?.classList.remove('open');
+        drawer?.classList.remove('open');
+        sidebarOverlay?.classList.remove('visible');
+    }
+    
+    function toggleSidebar() {
+        if (sidebar?.classList.contains('open')) {
+            closeAll();
+        } else {
+            closeAll();
+            sidebar?.classList.add('open');
+            sidebarOverlay?.classList.add('visible');
+        }
+    }
+    
+    function toggleDrawer() {
+        if (drawer?.classList.contains('open')) {
+            closeAll();
+        } else {
+            closeAll();
+            drawer?.classList.add('open');
+            sidebarOverlay?.classList.add('visible');
+        }
+    }
+    
+    hamburgerBtn.addEventListener('click', toggleSidebar);
+    
+    // Close on overlay click
+    sidebarOverlay?.addEventListener('click', closeAll);
+    
+    // Close on escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeAll();
+    });
+    
+    // Listen for custom events from router
+    window.addEventListener('open-sidebar', () => {
+        if (window.innerWidth <= 1024) {
+            toggleSidebar();
+        }
+    });
+    
+    window.addEventListener('open-settings', () => {
+        if (window.innerWidth <= 1024) {
+            toggleDrawer();
+        }
+    });
+}
+
 // ── Bootstrap ───────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -341,6 +408,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initRippleEffect();
     initMobileNavigation();
     initBottomSheet();
+    initSidebarToggle();
 
     initEditor();
     initPlayer();

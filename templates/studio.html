@@ -31,10 +31,19 @@
     <div class="app-shell">
         <!-- Title bar (macOS style) -->
         <header class="title-bar">
-            <div class="window-controls">
-                <div class="window-btn close"></div>
-                <div class="window-btn minimize"></div>
-                <div class="window-btn maximize"></div>
+            <div class="title-bar-left">
+                <button class="action-btn hamburger-btn" id="btn-hamburger" title="Toggle sidebar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"/>
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                <div class="window-controls">
+                    <div class="window-btn close"></div>
+                    <div class="window-btn minimize"></div>
+                    <div class="window-btn maximize"></div>
+                </div>
             </div>
             <div class="title-bar-center">
                 <span class="app-title">Podcast Studio</span>
@@ -189,18 +198,6 @@
                                         <input type="text" id="import-url" placeholder="https://docs.example.com/article" class="text-input"/>
                                     </div>
                                     <div class="url-preview" id="url-preview"></div>
-                                </div>
-                            </div>
-
-                            <div class="form-options">
-                                <div class="option-row">
-                                    <label class="option-label">Code blocks</label>
-                                    <div class="segmented-control">
-                                        <button class="segment active" data-value="skip">Skip</button>
-                                        <button class="segment" data-value="placeholder">Placeholder</button>
-                                        <button class="segment" data-value="read">Read</button>
-                                    </div>
-                                    <input type="hidden" id="import-code-rule" value="skip"/>
                                 </div>
                             </div>
 
@@ -465,6 +462,11 @@
                                 <div class="progress-bar-container">
                                     <div class="progress-bar" id="episode-progress-fill"></div>
                                 </div>
+                            </div>
+                            
+                            <div class="generation-status-detail" id="generation-status-detail">
+                                <span class="gen-stage" id="gen-stage">Waiting in queue...</span>
+                                <span class="gen-chunk-info" id="gen-chunk-info"></span>
                             </div>
                         </div>
 

@@ -90,7 +90,8 @@ function initImportView() {
         const text = getImportText();
         if (!text) return toast('Enter some text first', 'error');
 
-        const rule = document.getElementById('import-code-rule').value;
+        const settings = state.get('settings') || {};
+        const rule = settings.default_code_rule || 'skip';
         try {
             const result = await api.previewClean(text, rule);
             document.getElementById('preview-raw').textContent = text.substring(0, 5000);
@@ -127,7 +128,8 @@ function getImportText() {
 async function doImport() {
     const activeBtn = document.querySelector('.method-btn.active');
     const activeTab = activeBtn ? activeBtn.dataset.tab : 'paste';
-    const rule = document.getElementById('import-code-rule').value;
+    const settings = state.get('settings') || {};
+    const rule = settings.default_code_rule || 'skip';
 
     try {
         let result;
@@ -404,6 +406,34 @@ function renderEpisode(episode) {
     document.getElementById('episode-progress-fill').style.width = `${pct}%`;
     document.getElementById('episode-progress-text').textContent = `${Math.round(pct)}%`;
 
+    // Generation status detail
+    const genStageEl = document.getElementById('gen-stage');
+    const genChunkInfoEl = document.getElementById('gen-chunk-info');
+    
+    if (episode.status === 'pending') {
+        genStageEl.textContent = 'Waiting in queue...';
+        genStageEl.className = 'gen-stage';
+        genChunkInfoEl.textContent = '';
+    } else if (episode.status === 'generating') {
+        genStageEl.textContent = 'Generating audio...';
+        genStageEl.className = 'gen-stage generating';
+        // Find current chunk being generated
+        const generatingChunk = episode.chunks?.find(c => c.status === 'generating');
+        if (generatingChunk) {
+            genChunkInfoEl.textContent = `Processing chunk ${generatingChunk.chunk_index + 1} of ${totalChunks}`;
+        } else {
+            genChunkInfoEl.textContent = `${readyChunks} of ${totalChunks} chunks ready`;
+        }
+    } else if (episode.status === 'ready') {
+        genStageEl.textContent = 'Complete!';
+        genStageEl.className = 'gen-stage ready';
+        genChunkInfoEl.textContent = `${totalChunks} chunks · ${duration}`;
+    } else if (episode.status === 'error') {
+        genStageEl.textContent = 'Generation failed';
+        genStageEl.className = 'gen-stage error';
+        genChunkInfoEl.textContent = '';
+    }
+
     // Chunks grid
     const container = document.getElementById('episode-chunks');
     container.innerHTML = '';
@@ -416,12 +446,15 @@ function renderEpisode(episode) {
             card.classList.add('playing');
         }
 
+        const isLongText = chunk.text.length > 150;
+        
         card.innerHTML = `
             <div class="chunk-card-header">
                 <span class="chunk-num">${chunk.chunk_index + 1}</span>
                 <span class="chunk-status ${chunk.status}">${chunk.status}</span>
             </div>
-            <div class="chunk-text">${escapeHtml(chunk.text.substring(0, 150))}${chunk.text.length > 150 ? '...' : ''}</div>
+            <div class="chunk-text" data-full-text="${escapeHtml(chunk.text)}">${escapeHtml(chunk.text.substring(0, 150))}${isLongText ? '...' : ''}</div>
+            ${isLongText ? '<div class="chunk-expand-indicator">Click to expand</div>' : ''}
             <div class="chunk-footer">
                 <span class="chunk-duration">${chunk.duration_secs ? formatTime(chunk.duration_secs) : '—'}</span>
                 <div class="chunk-actions">
@@ -443,6 +476,22 @@ function renderEpisode(episode) {
                 </div>
             </div>
         `;
+
+        // Expand/collapse on click
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.chunk-btn')) return;
+            card.classList.toggle('expanded');
+            const expandIndicator = card.querySelector('.chunk-expand-indicator');
+            if (expandIndicator) {
+                expandIndicator.textContent = card.classList.contains('expanded') ? 'Click to collapse' : 'Click to expand';
+            }
+            const textEl = card.querySelector('.chunk-text');
+            if (card.classList.contains('expanded')) {
+                textEl.textContent = chunk.text;
+            } else {
+                textEl.textContent = escapeHtml(chunk.text.substring(0, 150)) + (chunk.text.length > 150 ? '...' : '');
+            }
+        });
 
         // Play handler
         const playBtn = card.querySelector('.play-chunk');
@@ -650,6 +699,18 @@ export function route(hash) {
         loadEpisode(parts[1]);
     } else if (parts[0] === 'now-playing') {
         loadNowPlaying();
+    } else if (parts[0] === 'library') {
+        // Show library (on mobile, open the sidebar drawer)
+        state.set('currentView', 'library');
+        showView('import');
+        refreshTree();
+        // Trigger sidebar open on mobile
+        window.dispatchEvent(new CustomEvent('open-sidebar'));
+    } else if (parts[0] === 'settings') {
+        // Show settings (open settings drawer)
+        state.set('currentView', 'settings');
+        showView('import');
+        window.dispatchEvent(new CustomEvent('open-settings'));
     } else {
         state.set('currentView', 'import');
         showView('import');
