@@ -108,6 +108,14 @@ export function regenerateChunk(episodeId, chunkIndex) {
     return request(`/episodes/${episodeId}/chunks/${chunkIndex}/regenerate`, { method: 'POST' });
 }
 
+export function regenerateWithSettings(episodeId, settings) {
+    return request(`/episodes/${episodeId}/regenerate-with-settings`, jsonOpts('POST', settings));
+}
+
+export function undoRegeneration(undoId) {
+    return request(`/undo/${undoId}`, { method: 'POST' });
+}
+
 export function chunkAudioUrl(episodeId, chunkIndex) {
     return `${BASE}/episodes/${episodeId}/audio/${chunkIndex}`;
 }
@@ -136,6 +144,18 @@ export function updateFolder(id, data) {
 
 export function deleteFolder(id) {
     return request(`/folders/${id}`, { method: 'DELETE' });
+}
+
+export function playFolder(folderId) {
+    return request(`/folders/${folderId}/playlist`, { method: 'POST' });
+}
+
+export function bulkMoveEpisodes(episodeIds, folderId) {
+    return request('/episodes/bulk-move', jsonOpts('POST', { episode_ids: episodeIds, folder_id: folderId }));
+}
+
+export function bulkDeleteEpisodes(episodeIds) {
+    return request('/episodes/bulk-delete', jsonOpts('POST', { episode_ids: episodeIds }));
 }
 
 export function moveSource(id, folderId) {

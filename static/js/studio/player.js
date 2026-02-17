@@ -13,6 +13,7 @@ let currentChunkIndex = 0;
 let chunks = [];
 let saveTimer = null;
 let waveformAnimationId = null;
+let isFullscreen = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -240,6 +241,9 @@ async function loadChunk(chunkIndex) {
             updatePlayPauseIcon(true);
             startWaveformAnimation();
             updateNowPlayingView();
+            if (isFullscreen) {
+                updateFullscreenUI();
+            }
         });
         audio.addEventListener('pause', () => {
             updatePlayPauseIcon(false);
@@ -247,11 +251,25 @@ async function loadChunk(chunkIndex) {
             drawWaveform();
             savePosition();
             updateNowPlayingView();
+            if (isFullscreen) {
+                updateFullscreenUI();
+            }
         });
     }
 
     audio.src = url;
     audio.load();
+
+    // Apply saved playback speed
+    const savedSpeed = localStorage.getItem('pocket_tts_playback_speed');
+    if (savedSpeed) {
+        audio.playbackRate = parseFloat(savedSpeed);
+    }
+
+    // Update fullscreen if open
+    if (isFullscreen) {
+        updateFullscreenUI();
+    }
 
     updatePlayerUI();
     updateNowPlayingView();
@@ -337,6 +355,122 @@ function showPlayer() {
         drawWaveform();
         startWaveformAnimation();
     }, 100);
+}
+
+// ── Fullscreen Player ───────────────────────────────────────────────
+
+function initFullscreenPlayer() {
+    const fullscreenPlayer = $('fullscreen-player');
+    const miniPlayerExpand = $('btn-expand-player');
+    
+    if (!fullscreenPlayer) return;
+    
+    // Expand button in mini player
+    if (miniPlayerExpand) {
+        miniPlayerExpand.addEventListener('click', openFullscreenPlayer);
+    }
+    
+    // Minimize button
+    $('fs-btn-minimize').addEventListener('click', closeFullscreenPlayer);
+    
+    // Play/pause
+    $('fs-btn-play').addEventListener('click', togglePlay);
+    
+    // Skip buttons
+    $('fs-btn-prev').addEventListener('click', prevChunk);
+    $('fs-btn-next').addEventListener('click', nextChunk);
+    
+    // Scrubber
+    $('fs-scrubber').addEventListener('input', (e) => {
+        if (!audio || !audio.duration) return;
+        audio.currentTime = (e.target.value / 100) * audio.duration;
+        $('fs-progress-fill').style.width = `${e.target.value}%`;
+    });
+    
+    // Shuffle/Repeat (placeholders for now)
+    $('fs-btn-shuffle').addEventListener('click', () => {
+        toast('Shuffle: Coming soon', 'info');
+    });
+    
+    $('fs-btn-repeat').addEventListener('click', () => {
+        toast('Repeat: Coming soon', 'info');
+    });
+    
+    // Keyboard shortcuts in fullscreen
+    document.addEventListener('keydown', (e) => {
+        if (!isFullscreen) return;
+        
+        switch (e.key) {
+            case 'Escape':
+                closeFullscreenPlayer();
+                break;
+            case ' ':
+                e.preventDefault();
+                togglePlay();
+                break;
+            case 'ArrowLeft':
+                skip(-10);
+                break;
+            case 'ArrowRight':
+                skip(10);
+                break;
+        }
+    });
+}
+
+function openFullscreenPlayer() {
+    if (!currentEpisode) return;
+    
+    isFullscreen = true;
+    $('fullscreen-player').classList.remove('hidden');
+    updateFullscreenUI();
+    document.body.classList.add('fullscreen-player-open');
+}
+
+function closeFullscreenPlayer() {
+    isFullscreen = false;
+    $('fullscreen-player').classList.add('hidden');
+    document.body.classList.remove('fullscreen-player-open');
+}
+
+function updateFullscreenUI() {
+    if (!currentEpisode) return;
+    
+    const chunk = chunks.find(c => c.chunk_index === currentChunkIndex);
+    const idx = chunks.findIndex(c => c.chunk_index === currentChunkIndex);
+    
+    $('fs-track-title').textContent = currentEpisode.title;
+    $('fs-track-chunk').textContent = chunk 
+        ? `Part ${idx + 1} of ${chunks.length}`
+        : '';
+    
+    // Update play/pause icons
+    const isPlaying = audio && !audio.paused;
+    $('fs-play-icon').style.display = isPlaying ? 'none' : 'block';
+    $('fs-pause-icon').style.display = isPlaying ? 'block' : 'none';
+    
+    // Update playing indicator
+    const indicator = $('fs-playing-indicator');
+    if (indicator) {
+        indicator.classList.toggle('active', isPlaying);
+    }
+    
+    // Update subtitles
+    updateSubtitles(chunk ? chunk.text : '');
+}
+
+function updateSubtitles(text) {
+    const subtitleEl = $('fs-subtitle-text');
+    if (!subtitleEl) return;
+    
+    if (!text) {
+        subtitleEl.textContent = 'No subtitle available';
+        return;
+    }
+    
+    // Split into sentences for display
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    subtitleEl.textContent = sentences[0] || text;
 }
 
 // Add slide up animation
@@ -431,6 +565,9 @@ export function init() {
     // Initialize waveform
     initWaveformBars();
     
+    // Initialize fullscreen player
+    initFullscreenPlayer();
+    
     // Handle resize with debounce
     let resizeTimeout;
     window.addEventListener('resize', () => {
@@ -461,6 +598,27 @@ export function init() {
             window.open(api.chunkAudioUrl(currentEpisode.id, currentChunkIndex), '_blank');
         }
     });
+    
+    // Playback speed control
+    const speedSelect = document.getElementById('playback-speed');
+    if (speedSelect) {
+        // Load saved speed preference
+        const savedSpeed = localStorage.getItem('pocket_tts_playback_speed');
+        if (savedSpeed) {
+            speedSelect.value = savedSpeed;
+            if (audio) {
+                audio.playbackRate = parseFloat(savedSpeed);
+            }
+        }
+        
+        speedSelect.addEventListener('change', (e) => {
+            const speed = parseFloat(e.target.value);
+            if (audio) {
+                audio.playbackRate = speed;
+            }
+            localStorage.setItem('pocket_tts_playback_speed', speed);
+        });
+    }
     
     // Queue toggle
     const queueBtn = document.getElementById('btn-queue-toggle');
@@ -506,4 +664,15 @@ export function init() {
 
     // Periodic save
     startPeriodicSave();
+}
+
+export function setPlaybackSpeed(speed) {
+    if (audio) {
+        audio.playbackRate = speed;
+    }
+    const speedSelect = document.getElementById('playback-speed');
+    if (speedSelect) {
+        speedSelect.value = speed.toString();
+    }
+    localStorage.setItem('pocket_tts_playback_speed', speed);
 }

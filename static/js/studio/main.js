@@ -11,7 +11,7 @@ import { init as initSettings } from './settings.js';
 
 // ── Toast notifications ─────────────────────────────────────────────
 
-export function toast(message, type = 'info') {
+export function toast(message, type = 'info', duration = 4000) {
     const container = document.getElementById('toast-container');
     const el = document.createElement('div');
     el.className = `toast ${type}`;
@@ -33,7 +33,52 @@ export function toast(message, type = 'info') {
         el.style.opacity = '0';
         el.style.transform = 'translateX(30px)';
         setTimeout(() => el.remove(), 300);
-    }, 4000);
+    }, duration);
+}
+
+// ── Undo Toast ─────────────────────────────────────────────────────
+
+let undoTimeout = null;
+let undoCallback = null;
+
+export function showUndoToast(message, onUndo, duration = 2000) {
+    clearTimeout(undoTimeout);
+    undoCallback = onUndo;
+    
+    const container = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = 'toast undo-toast';
+    el.innerHTML = `
+        <span class="undo-message">${message}</span>
+        <button class="undo-btn" id="undo-btn">Undo</button>
+    `;
+    container.appendChild(el);
+    
+    requestAnimationFrame(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(30px)';
+        requestAnimationFrame(() => {
+            el.style.transition = 'all 0.3s ease';
+            el.style.opacity = '1';
+            el.style.transform = 'translateX(0)';
+        });
+    });
+    
+    document.getElementById('undo-btn').addEventListener('click', () => {
+        clearTimeout(undoTimeout);
+        if (undoCallback) undoCallback();
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(30px)';
+        setTimeout(() => el.remove(), 300);
+        undoCallback = null;
+    });
+    
+    undoTimeout = setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(30px)';
+        setTimeout(() => el.remove(), 300);
+        undoCallback = null;
+    }, duration);
 }
 
 // ── Confirm dialog ──────────────────────────────────────────────────
@@ -106,6 +151,129 @@ function initKeyboardModal() {
     });
 }
 
+// ── Mobile Navigation & Bottom Sheet ────────────────────────────────
+
+function initMobileNavigation() {
+    const mobileNav = document.getElementById('mobile-nav');
+    if (!mobileNav) return;
+    
+    const navItems = mobileNav.querySelectorAll('.mobile-nav-item');
+    
+    function updateActiveRoute() {
+        const hash = window.location.hash || '#import';
+        let route = 'import';
+        
+        if (hash.startsWith('#episode') || hash.startsWith('#source') || hash.startsWith('#review')) {
+            route = 'library';
+        } else if (hash === '#now-playing' || hash === '#queue') {
+            route = 'now-playing';
+        } else if (hash === '#settings') {
+            route = 'settings';
+        } else if (hash === '#library') {
+            route = 'library';
+        } else if (hash === '#import' || hash === '' || hash === '#') {
+            route = 'import';
+        }
+        
+        navItems.forEach(item => {
+            item.classList.toggle('active', item.dataset.route === route);
+        });
+    }
+    
+    window.addEventListener('hashchange', updateActiveRoute);
+    updateActiveRoute();
+}
+
+function initBottomSheet() {
+    const overlay = document.getElementById('bottom-sheet-overlay');
+    const sheet = document.getElementById('bottom-sheet');
+    if (!overlay || !sheet) return;
+    
+    function openBottomSheet(title, actions) {
+        const content = document.getElementById('bottom-sheet-content');
+        const titleEl = document.getElementById('bottom-sheet-title');
+        
+        titleEl.textContent = title;
+        content.innerHTML = '';
+        
+        actions.forEach(action => {
+            if (action.sep) {
+                const divider = document.createElement('div');
+                divider.className = 'bottom-sheet-divider';
+                content.appendChild(divider);
+                return;
+            }
+            
+            const btn = document.createElement('button');
+            btn.className = 'bottom-sheet-action';
+            if (action.danger) btn.classList.add('danger');
+            
+            if (action.icon) {
+                btn.innerHTML = `${action.icon}<span>${action.label}</span>`;
+            } else {
+                btn.textContent = action.label;
+            }
+            
+            btn.addEventListener('click', () => {
+                closeBottomSheet();
+                action.action();
+            });
+            
+            content.appendChild(btn);
+        });
+        
+        overlay.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            overlay.classList.add('visible');
+        });
+    }
+    
+    function closeBottomSheet() {
+        overlay.classList.remove('visible');
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+        }, 300);
+    }
+    
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            closeBottomSheet();
+        }
+    });
+    
+    sheet.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+    
+    // Swipe to dismiss
+    let startY = 0;
+    let currentY = 0;
+    
+    sheet.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].clientY;
+    });
+    
+    sheet.addEventListener('touchmove', (e) => {
+        currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+        if (diff > 0) {
+            sheet.style.transform = `translateY(${diff}px)`;
+        }
+    });
+    
+    sheet.addEventListener('touchend', () => {
+        const diff = currentY - startY;
+        if (diff > 100) {
+            closeBottomSheet();
+        }
+        sheet.style.transform = '';
+    });
+    
+    // Make available globally
+    window.openBottomSheet = openBottomSheet;
+    window.closeBottomSheet = closeBottomSheet;
+}
+
 // ── New content button ──────────────────────────────────────────────
 
 function initNewContentButton() {
@@ -171,6 +339,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     initKeyboardModal();
     initNewContentButton();
     initRippleEffect();
+    initMobileNavigation();
+    initBottomSheet();
 
     initEditor();
     initPlayer();

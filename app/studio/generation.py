@@ -10,6 +10,7 @@ import time
 
 from app.config import Config
 from app.logging_config import get_logger
+from app.studio.breathing import add_breathing
 
 logger = get_logger('studio.generation')
 
@@ -109,7 +110,7 @@ class GenerationQueue:
 
             # Get episode config
             episode = db.execute(
-                'SELECT voice_id, output_format FROM episodes WHERE id = ?',
+                'SELECT voice_id, output_format, breathing_intensity FROM episodes WHERE id = ?',
                 (episode_id,),
             ).fetchone()
 
@@ -118,6 +119,7 @@ class GenerationQueue:
 
             voice_id = episode['voice_id']
             output_format = episode['output_format']
+            breathing_intensity = episode['breathing_intensity'] or 'normal'
 
             # Prepare audio directory
             audio_dir = os.path.join(Config.STUDIO_AUDIO_DIR, episode_id)
@@ -148,6 +150,9 @@ class GenerationQueue:
                         (chunk_id,),
                     )
                     db.commit()
+
+                    # Apply breathing to text for more natural speech
+                    chunk_text = add_breathing(chunk_text, breathing_intensity)
 
                     # Generate audio
                     t0 = time.time()

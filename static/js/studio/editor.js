@@ -5,7 +5,7 @@
 
 import * as api from './api.js';
 import * as state from './state.js';
-import { toast, confirm as confirmDialog } from './main.js';
+import { toast, confirm as confirmDialog, showUndoToast } from './main.js';
 import { refreshTree } from './library.js';
 import { loadEpisode as playerLoadEpisode } from './player.js';
 
@@ -196,6 +196,9 @@ async function loadReview(sourceId) {
         if (settings.default_format) {
             document.getElementById('review-format').value = settings.default_format;
         }
+        if (settings.default_breathing) {
+            document.getElementById('review-breathing').value = settings.default_breathing;
+        }
 
         // Hide chunk preview
         document.getElementById('review-chunk-preview').classList.add('hidden');
@@ -244,6 +247,7 @@ function initReviewView() {
             output_format: document.getElementById('review-format').value,
             chunk_strategy: document.getElementById('review-strategy').value,
             chunk_max_length: parseInt(document.getElementById('review-max-chars').value),
+            breathing_intensity: document.getElementById('review-breathing').value,
         };
 
         try {
@@ -472,6 +476,87 @@ function renderEpisode(episode) {
 }
 
 function initEpisodeView() {
+    // Regenerate with settings modal
+    const regenModal = document.getElementById('regen-settings-modal');
+    let currentRegenEpisodeId = null;
+    
+    document.getElementById('btn-regenerate-settings').addEventListener('click', async () => {
+        const id = state.get('currentEpisodeId');
+        if (!id) return;
+        
+        currentRegenEpisodeId = id;
+        
+        // Populate voice select
+        const voiceSelect = document.getElementById('regen-voice');
+        voiceSelect.innerHTML = '<option value="">Same as before</option>';
+        
+        const voices = state.get('voices') || await api.listVoices();
+        state.set('voices', voices);
+        
+        for (const v of voices) {
+            const opt = document.createElement('option');
+            opt.value = v.voice_id;
+            opt.textContent = v.name || v.voice_id;
+            voiceSelect.appendChild(opt);
+        }
+        
+        regenModal.classList.remove('hidden');
+    });
+    
+    document.getElementById('regen-settings-close').addEventListener('click', () => {
+        regenModal.classList.add('hidden');
+    });
+    
+    document.getElementById('regen-settings-cancel').addEventListener('click', () => {
+        regenModal.classList.add('hidden');
+    });
+    
+    document.getElementById('regen-settings-confirm').addEventListener('click', async () => {
+        if (!currentRegenEpisodeId) return;
+        
+        const voiceId = document.getElementById('regen-voice').value;
+        const format = document.getElementById('regen-format').value;
+        const strategy = document.getElementById('regen-strategy').value;
+        
+        const settings = {};
+        if (voiceId) settings.voice_id = voiceId;
+        if (format) settings.format = format;
+        if (strategy) settings.chunk_strategy = strategy;
+        
+        try {
+            const result = await api.regenerateWithSettings(currentRegenEpisodeId, settings);
+            
+            regenModal.classList.add('hidden');
+            
+            if (result.undo_id) {
+                showUndoToast(
+                    'Episode queued for regeneration',
+                    async () => {
+                        try {
+                            await api.undoRegeneration(result.undo_id);
+                            toast('Regeneration undone', 'info');
+                            loadEpisode(currentRegenEpisodeId);
+                        } catch (e) {
+                            toast(`Undo failed: ${e.message}`, 'error');
+                        }
+                    },
+                    120000  // 2 minutes
+                );
+            }
+            
+            loadEpisode(currentRegenEpisodeId);
+        } catch (e) {
+            toast(`Failed: ${e.message}`, 'error');
+        }
+    });
+    
+    // Close modal on overlay click
+    regenModal.addEventListener('click', (e) => {
+        if (e.target === regenModal) {
+            regenModal.classList.add('hidden');
+        }
+    });
+
     document.getElementById('btn-regenerate-episode').addEventListener('click', async () => {
         const id = state.get('currentEpisodeId');
         const ok = await confirmDialog('Regenerate Episode', 'Regenerate all chunks? This will delete existing audio.');

@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     chunk_strategy TEXT NOT NULL,
     chunk_max_length INTEGER,
     code_block_rule TEXT NOT NULL DEFAULT 'skip',
+    breathing_intensity TEXT DEFAULT 'normal',
     status TEXT NOT NULL DEFAULT 'pending',
     total_duration_secs REAL,
     folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,
@@ -97,6 +98,16 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER PRIMARY KEY
 );
+
+-- Undo buffer for episode regeneration (2-minute grace period)
+CREATE TABLE IF NOT EXISTS undo_buffer (
+    id TEXT PRIMARY KEY,
+    episode_id TEXT NOT NULL,
+    backup_audio_dir TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT NOT NULL DEFAULT (datetime('now', '+2 minutes'))
+);
+CREATE INDEX IF NOT EXISTS idx_undo_expires ON undo_buffer(expires_at);
 """
 
 
@@ -118,6 +129,55 @@ def close_db():
         db.close()
 
 
+MIGRATIONS = [
+    # Migration 1: Add breathing_intensity to episodes
+    """
+    ALTER TABLE episodes ADD COLUMN breathing_intensity TEXT DEFAULT 'normal';
+    """,
+    # Migration 2: Add undo_buffer table
+    """
+    CREATE TABLE IF NOT EXISTS undo_buffer (
+        id TEXT PRIMARY KEY,
+        episode_id TEXT NOT NULL,
+        backup_audio_dir TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        expires_at TEXT NOT NULL DEFAULT (datetime('now', '+2 minutes'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_undo_expires ON undo_buffer(expires_at);
+    """,
+    # Migration 3: Add subtitle settings defaults
+    """
+    INSERT OR IGNORE INTO settings (key, value) VALUES
+        ('show_subtitles', 'true'),
+        ('subtitle_mode', 'full'),
+        ('subtitle_font_size', '16'),
+        ('auto_play_next', 'true'),
+        ('crossfade_duration', '0'),
+        ('clean_remove_non_text', 'false'),
+        ('clean_handle_tables', 'true'),
+        ('clean_speak_urls', 'true'),
+        ('clean_expand_abbreviations', 'true');
+    """,
+]
+
+
+def run_migrations(conn: sqlite3.Connection):
+    """Run any pending database migrations."""
+    try:
+        for i, migration in enumerate(MIGRATIONS, start=1):
+            try:
+                conn.executescript(migration)
+                logger.info(f'Migration {i} applied successfully')
+            except sqlite3.OperationalError as e:
+                if 'duplicate column name' in str(e):
+                    logger.debug(f'Migration {i} already applied')
+                else:
+                    logger.warning(f'Migration {i} failed: {e}')
+        conn.commit()
+    except Exception as e:
+        logger.error(f'Error running migrations: {e}')
+
+
 def init_db():
     """Initialize the database schema."""
     import os
@@ -134,6 +194,23 @@ def init_db():
     existing = conn.execute('SELECT version FROM schema_version').fetchone()
     if not existing:
         conn.execute('INSERT INTO schema_version (version) VALUES (?)', (SCHEMA_VERSION,))
+
+    # Run migrations
+    run_migrations(conn)
+
+    # Insert default settings
+    default_settings = [
+        ('show_subtitles', 'true'),
+        ('subtitle_mode', 'full'),
+        ('subtitle_font_size', '16'),
+        ('auto_play_next', 'true'),
+        ('crossfade_duration', '0'),
+        ('clean_remove_non_text', 'false'),
+        ('clean_handle_tables', 'true'),
+        ('clean_speak_urls', 'true'),
+        ('clean_expand_abbreviations', 'true'),
+    ]
+    conn.executemany('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', default_settings)
 
     conn.commit()
     conn.close()

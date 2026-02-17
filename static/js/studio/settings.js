@@ -28,6 +28,21 @@ function applyToForm(settings) {
     if (settings.default_max_chars) $('setting-max-chars').value = settings.default_max_chars;
     if (settings.default_format) $('setting-format').value = settings.default_format;
     if (settings.default_code_rule) $('setting-code-rule').value = settings.default_code_rule;
+    if (settings.default_breathing) $('setting-breathing').value = settings.default_breathing;
+    
+    // Cleaning settings
+    $('setting-clean-remove-non-text').checked = settings.clean_remove_non_text === 'true';
+    $('setting-clean-speak-urls').checked = settings.clean_speak_urls === 'true';
+    $('setting-clean-handle-tables').checked = settings.clean_handle_tables === 'true';
+    $('setting-clean-expand-abbreviations').checked = settings.clean_expand_abbreviations === 'true';
+    
+    // Subtitle settings
+    $('setting-show-subtitles').checked = settings.show_subtitles !== 'false';
+    if (settings.subtitle_mode) $('setting-subtitle-mode').value = settings.subtitle_mode;
+    if (settings.subtitle_font_size) {
+        $('setting-subtitle-font-size').value = settings.subtitle_font_size;
+        $('subtitle-font-value').textContent = settings.subtitle_font_size + 'px';
+    }
 }
 
 // ── Save settings ───────────────────────────────────────────────────
@@ -39,11 +54,24 @@ async function saveSettings() {
         default_max_chars: parseInt($('setting-max-chars').value),
         default_format: $('setting-format').value,
         default_code_rule: $('setting-code-rule').value,
+        default_breathing: $('setting-breathing').value,
+        
+        // Cleaning settings
+        clean_remove_non_text: $('setting-clean-remove-non-text').checked ? 'true' : 'false',
+        clean_speak_urls: $('setting-clean-speak-urls').checked ? 'true' : 'false',
+        clean_handle_tables: $('setting-clean-handle-tables').checked ? 'true' : 'false',
+        clean_expand_abbreviations: $('setting-clean-expand-abbreviations').checked ? 'true' : 'false',
+        
+        // Subtitle settings
+        show_subtitles: $('setting-show-subtitles').checked ? 'true' : 'false',
+        subtitle_mode: $('setting-subtitle-mode').value,
+        subtitle_font_size: $('setting-subtitle-font-size').value,
     };
 
     try {
         await api.updateSettings(data);
         state.set('settings', data);
+        applySubtitleSettings(data);
         toast('Settings saved', 'success');
     } catch (e) {
         toast(e.message, 'error');
@@ -128,6 +156,19 @@ function updateGenerationStatusUI(status) {
     }
 }
 
+// ── Apply subtitle settings to player ───────────────────────────────────
+
+function applySubtitleSettings(settings) {
+    const container = document.getElementById('fs-subtitles-container');
+    if (!container) return;
+    
+    const show = settings.show_subtitles !== 'false';
+    container.style.display = show ? 'flex' : 'none';
+    
+    const fontSize = settings.subtitle_font_size || '16';
+    container.style.setProperty('--subtitle-font-size', fontSize + 'px');
+}
+
 // ── Init ────────────────────────────────────────────────────────────
 
 export async function init() {
@@ -153,6 +194,11 @@ export async function init() {
         if (e.key === 'Enter') {
             $('btn-create-tag').click();
         }
+    });
+    
+    // Subtitle font size slider live preview
+    $('setting-subtitle-font-size').addEventListener('input', (e) => {
+        $('subtitle-font-value').textContent = e.target.value + 'px';
     });
 
     await loadSettings();
