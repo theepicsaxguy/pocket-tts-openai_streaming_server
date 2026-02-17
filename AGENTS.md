@@ -198,3 +198,11 @@ Avoid:
 - Duplicating similar logic in multiple places
 - Adding new state management when `state.js` suffices
 - Creating custom CSS when existing classes work
+
+### Additional Guidelines
+
+1. **UI State Synchronization**: When multiple UI components share state (e.g., mini player and fullscreen player), changes in one must sync to the other. Use localStorage or shared event handlers.
+
+2. **Database Foreign Key Validation**: Always validate that referenced entities exist before performing operations. Don't rely solely on FK constraints - check existence and return proper error messages.
+
+3. **Recovery from Server Crashes**: For long-running background operations (like audio generation), implement startup recovery that resets stuck/inconsistent states to known good values.
