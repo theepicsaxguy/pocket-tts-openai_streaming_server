@@ -5,7 +5,7 @@
 
 import * as api from './api.js';
 import * as state from './state.js';
-import { toast, confirm as confirmDialog, showUndoToast } from './main.js';
+import { toast, confirm as confirmDialog } from './main.js';
 import { loadEpisode } from './player.js';
 
 const SVG_FOLDER = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -26,7 +26,8 @@ const SVG_EPISODE = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 </svg>`;
 
 let activeContextMenu = null;
-let selectedItems = new Set();
+const selectedItems = new Set();
+// eslint-disable-next-line no-unused-vars
 let isBulkMode = false;
 
 // ── Touch Gestures & Swipe Actions ────────────────────────────────
@@ -34,34 +35,34 @@ let isBulkMode = false;
 function initTouchGestures() {
     const tree = document.getElementById('library-tree');
     if (!tree) return;
-    
+
     let touchStartX = 0;
     let touchStartY = 0;
     let touchedElement = null;
-    
+
     tree.addEventListener('touchstart', (e) => {
         const item = e.target.closest('.tree-item');
         if (!item) return;
-        
+
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
         touchedElement = item;
     }, { passive: true });
-    
+
     tree.addEventListener('touchend', (e) => {
         if (!touchedElement) return;
-        
+
         const touchEndX = e.changedTouches[0].clientX;
         const touchEndY = e.changedTouches[0].clientY;
-        
+
         const diffX = touchEndX - touchStartX;
         const diffY = touchEndY - touchStartY;
-        
+
         // Horizontal swipe
         if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY) * 2) {
             const type = touchedElement.dataset.type;
             const id = touchedElement.dataset.id;
-            
+
             if (diffX > 0) {
                 // Swipe right - show actions
                 showSwipeActions(touchedElement, type, id);
@@ -70,21 +71,21 @@ function initTouchGestures() {
                 handleSwipeLeft(touchedElement, type, id);
             }
         }
-        
+
         touchedElement = null;
     }, { passive: true });
-    
+
     // Long press for context menu on mobile
     let longPressTimer = null;
-    
+
     tree.addEventListener('touchstart', (e) => {
         const item = e.target.closest('.tree-item');
         if (!item) return;
-        
+
         longPressTimer = setTimeout(() => {
             const type = item.dataset.type;
             const id = item.dataset.id;
-            
+
             if (type === 'episode') {
                 showContextMenuForItem(item, type, id);
             } else if (type === 'source') {
@@ -92,11 +93,11 @@ function initTouchGestures() {
             }
         }, 500);
     }, { passive: true });
-    
+
     tree.addEventListener('touchend', () => {
         clearTimeout(longPressTimer);
     });
-    
+
     tree.addEventListener('touchmove', () => {
         clearTimeout(longPressTimer);
     }, { passive: true });
@@ -105,34 +106,34 @@ function initTouchGestures() {
 function showSwipeActions(item, type, id) {
     if (type === 'episode') {
         window.openBottomSheet('Episode Actions', [
-            { 
-                label: 'Play', 
-                icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
+            {
+                label: 'Play',
+                icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
                 action: () => { window.location.hash = `#episode/${id}`; }
             },
             { sep: true },
-            { 
-                label: 'Move to Folder', 
-                icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>`,
+            {
+                label: 'Move to Folder',
+                icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>',
                 action: () => { /* TODO: Show folder picker */ }
             },
-            { 
-                label: 'Rename', 
-                icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+            {
+                label: 'Rename',
+                icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
                 action: () => startRenameFromId(type, id)
             },
         ]);
     } else if (type === 'source') {
         window.openBottomSheet('Source Actions', [
-            { 
-                label: 'Open', 
-                icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+            {
+                label: 'Open',
+                icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
                 action: () => { window.location.hash = `#source/${id}`; }
             },
             { sep: true },
-            { 
-                label: 'Rename', 
-                icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+            {
+                label: 'Rename',
+                icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
                 action: () => startRenameFromId(type, id)
             },
         ]);
@@ -185,7 +186,7 @@ function initBulkSelection() {
             exitBulkMode();
         }
     });
-    
+
     // Click on empty space to exit
     document.getElementById('library-tree')?.addEventListener('click', (e) => {
         if (e.target.id === 'library-tree' || e.target.classList.contains('tree-wrapper')) {
@@ -197,9 +198,9 @@ function initBulkSelection() {
 function enterBulkMode() {
     isBulkMode = true;
     selectedItems.clear();
-    
+
     document.body.classList.add('bulk-selection-mode');
-    
+
     // Show bulk actions bar if exists
     const bulkBar = document.getElementById('bulk-actions-bar');
     if (bulkBar) {
@@ -210,35 +211,35 @@ function enterBulkMode() {
 function exitBulkMode() {
     isBulkMode = false;
     selectedItems.clear();
-    
+
     document.body.classList.remove('bulk-selection-mode');
-    
+
     // Hide bulk actions bar
     const bulkBar = document.getElementById('bulk-actions-bar');
     if (bulkBar) {
         bulkBar.classList.add('hidden');
     }
-    
+
     // Remove selection styling
     document.querySelectorAll('.tree-item.selected').forEach(el => {
         el.classList.remove('selected');
     });
 }
 
-function toggleItemSelection(type, id) {
+function _toggleItemSelection(type, id) {
     const key = `${type}:${id}`;
-    
+
     if (selectedItems.has(key)) {
         selectedItems.delete(key);
     } else {
         selectedItems.add(key);
     }
-    
+
     const item = document.querySelector(`.tree-item[data-type="${type}"][data-id="${id}"]`);
     if (item) {
         item.classList.toggle('selected', selectedItems.has(key));
     }
-    
+
     // Show bulk bar when items selected
     if (selectedItems.size > 0) {
         enterBulkMode();
@@ -356,9 +357,9 @@ function renderFolder(folder) {
     });
 
     // Drag target
-    item.addEventListener('dragover', (e) => { 
-        e.preventDefault(); 
-        item.classList.add('drop-target'); 
+    item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        item.classList.add('drop-target');
     });
     item.addEventListener('dragleave', () => item.classList.remove('drop-target'));
     item.addEventListener('drop', (e) => {
@@ -496,7 +497,7 @@ function showContextMenu(e, items) {
     closeContextMenu();
     const menu = document.createElement('div');
     menu.className = 'context-menu';
-    
+
     // Position menu
     const x = Math.min(e.clientX, window.innerWidth - 200);
     const y = Math.min(e.clientY, window.innerHeight - 150);
@@ -678,16 +679,16 @@ function handleDrop(e, folderId) {
 async function doBulkMove() {
     const episodeIds = getSelectedEpisodeIds();
     if (!episodeIds.length) return;
-    
+
     // Show folder picker (simplified - just create a root folder for now)
     // In production, you'd show a modal with folder tree
     const folders = state.get('libraryTree')?.folders || [];
-    
+
     if (folders.length === 0) {
         toast('No folders available. Create a folder first.', 'info');
         return;
     }
-    
+
     // For now, just move to first folder
     // TODO: Show folder picker modal
     try {
@@ -703,10 +704,10 @@ async function doBulkMove() {
 async function doBulkDelete() {
     const episodeIds = getSelectedEpisodeIds();
     if (!episodeIds.length) return;
-    
+
     const ok = await confirmDialog('Delete Episodes', `Delete ${episodeIds.length} episode(s)?`);
     if (!ok) return;
-    
+
     try {
         await api.bulkDeleteEpisodes(episodeIds);
         toast(`Deleted ${episodeIds.length} episode(s)`, 'info');
@@ -732,7 +733,7 @@ function getSelectedEpisodeIds() {
 async function playFolderPlaylist(folderId) {
     try {
         const result = await api.playFolder(folderId);
-        
+
         if (result.episodes && result.episodes.length > 0) {
             // Load first episode
             await loadEpisode(result.episodes[0].id, 0);
@@ -750,12 +751,12 @@ async function playFolderPlaylist(folderId) {
 export function init() {
     initTouchGestures();
     initBulkSelection();
-    
+
     // Bulk action buttons
     document.getElementById('bulk-move-btn')?.addEventListener('click', doBulkMove);
     document.getElementById('bulk-delete-btn')?.addEventListener('click', doBulkDelete);
     document.getElementById('bulk-close-btn')?.addEventListener('click', exitBulkMode);
-    
+
     document.getElementById('btn-new-folder').addEventListener('click', async () => {
         await api.createFolder('New Folder');
         refreshTree();

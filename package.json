@@ -1,0 +1,14 @@
+{
+  "name": "pocket-tts-studio",
+  "version": "2.3.0",
+  "type": "module",
+  "description": "Podcast Studio frontend JavaScript",
+  "scripts": {
+    "lint": "eslint static/js/",
+    "lint:fix": "eslint static/js/ --fix"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "@eslint/js": "^9.0.0"
+  }
+}
