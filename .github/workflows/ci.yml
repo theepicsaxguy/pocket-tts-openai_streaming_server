@@ -91,6 +91,9 @@ jobs:
   test-e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.50.0-noble
+      options: --user root
     needs: [docker]
     # Only run E2E if we have access to pull the image (not on forks)
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
@@ -107,9 +110,6 @@ jobs:
       - name: Install Playwright
         run: npm install -D @playwright/test
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
@@ -122,7 +122,7 @@ jobs:
           docker pull ${{ needs.docker.outputs.image_tag }}
           docker run -d \
             --name pocket-tts \
-            -p 49112:49112 \
+            --network host \
             -e POCKET_TTS_HOST=0.0.0.0 \
             -e POCKET_TTS_PORT=49112 \
             -e POCKET_TTS_LOG_LEVEL=DEBUG \
