@@ -757,6 +757,12 @@ body.bulk-selection-mode .tree-item.selected::after {
   color: var(--text-muted);
 }
 
+.input-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: var(--space-2);
+}
+
 .text-input,
 .text-area {
   width: 100%;
@@ -1016,16 +1022,27 @@ body.bulk-selection-mode .tree-item.selected::after {
 
 .preview-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   padding: var(--space-4) var(--space-6);
   background: var(--surface-1);
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.preview-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .preview-header h3 {
   font-size: 0.95rem;
   font-weight: 500;
+}
+
+.preview-title {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
 
 .preview-comparison {

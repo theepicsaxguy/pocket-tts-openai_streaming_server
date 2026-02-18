@@ -80,6 +80,22 @@ export function previewClean(text, codeBlockRule) {
     return request('/preview-clean', jsonOpts('POST', { text, code_block_rule: codeBlockRule }));
 }
 
+export function previewContent(type, url, subpath = null) {
+    return request('/preview-content', jsonOpts('POST', {
+        type,
+        url,
+        subpath
+    }));
+}
+
+export function createSourceFromGit(url, subpath, codeBlockRule) {
+    return request('/sources', jsonOpts('POST', {
+        git_url: url,
+        git_subpath: subpath,
+        cleaning_settings: { code_block_rule: codeBlockRule }
+    }));
+}
+
 // ── Chunks & Episodes ───────────────────────────────────────────────
 
 export function previewChunks(text, strategy, maxChars) {

@@ -115,28 +115,65 @@ function initImportView() {
 
     // Preview clean
     document.getElementById('btn-preview-clean').addEventListener('click', async () => {
-        const text = getImportText();
         const activeBtn = document.querySelector('.method-btn.active');
         const activeTab = activeBtn ? activeBtn.dataset.tab : null;
 
-        if (!text) {
-            if (activeTab === 'url') {
-                return toast('Import the URL first to preview cleaned text', 'info');
-            } else if (activeTab === 'file') {
-                return toast('Upload a file first to preview cleaned text', 'info');
-            } else {
-                return toast('Enter some text first', 'error');
-            }
-        }
-
         const settings = state.get('settings') || {};
         const rule = settings.default_code_rule || 'skip';
+
         try {
-            const result = await api.previewClean(text, rule);
-            document.getElementById('preview-raw').textContent = text.substring(0, 5000);
-            document.getElementById('preview-cleaned').textContent = result.cleaned_text;
-            document.getElementById('raw-stats').textContent = `${text.length.toLocaleString()} chars`;
-            document.getElementById('cleaned-stats').textContent = `${result.cleaned_text.length.toLocaleString()} chars`;
+            let rawText, cleanedText, title, totalChars;
+
+            if (activeTab === 'paste') {
+                const text = document.getElementById('import-text').value.trim();
+                if (!text) return toast('Enter some text first', 'error');
+                const result = await api.previewClean(text, rule);
+                rawText = text;
+                cleanedText = result.cleaned_text;
+                title = document.getElementById('import-title').value.trim() || null;
+                totalChars = text.length;
+            } else if (activeTab === 'file') {
+                const fileInput = document.getElementById('import-file');
+                if (!fileInput.files.length) return toast('Select a file first', 'error');
+                const file = fileInput.files[0];
+                const text = await file.text();
+                const result = await api.previewClean(text, rule);
+                rawText = text;
+                cleanedText = result.cleaned_text;
+                title = file.name;
+                totalChars = text.length;
+            } else if (activeTab === 'url') {
+                const url = document.getElementById('import-url').value.trim();
+                if (!url) return toast('Enter a URL first', 'error');
+                const result = await api.previewContent('url', url);
+                rawText = result.raw_text;
+                cleanedText = result.cleaned_text;
+                title = result.title;
+                totalChars = result.total_chars;
+            } else if (activeTab === 'git') {
+                const url = document.getElementById('import-git-url').value.trim();
+                if (!url) return toast('Enter a git repository URL first', 'error');
+                const subpath = document.getElementById('import-git-subpath').value.trim() || null;
+                const result = await api.previewContent('git', url, subpath);
+                rawText = result.preview_text;
+                cleanedText = result.preview_text;
+                title = result.suggested_title;
+                totalChars = result.total_chars;
+            } else {
+                return toast('Select an import method first', 'error');
+            }
+
+            document.getElementById('preview-raw').textContent = rawText.substring(0, 5000);
+            document.getElementById('preview-cleaned').textContent = cleanedText.substring(0, 5000);
+            document.getElementById('raw-stats').textContent = `${totalChars.toLocaleString()} chars`;
+            document.getElementById('cleaned-stats').textContent = `${cleanedText.length.toLocaleString()} chars`;
+
+            // Update title in preview if available
+            const titleEl = document.getElementById('preview-title');
+            if (titleEl && title) {
+                titleEl.textContent = title;
+                titleEl.parentElement.classList.remove('hidden');
+            }
 
             const preview = document.getElementById('clean-preview');
             preview.classList.remove('hidden');
@@ -160,7 +197,8 @@ function getImportText() {
     if (!activeBtn) return null;
     const activeTab = activeBtn.dataset.tab;
     if (activeTab === 'paste') return document.getElementById('import-text').value;
-    if (activeTab === 'url') return null;
+    if (activeTab === 'url') return document.getElementById('import-url').value.trim();
+    if (activeTab === 'git') return document.getElementById('import-git-url').value.trim();
     if (activeTab === 'file') {
         const fileInput = document.getElementById('import-file');
         if (fileInput && fileInput.files.length > 0) {
@@ -192,6 +230,11 @@ async function doImport() {
             const url = document.getElementById('import-url').value.trim();
             if (!url) return toast('Enter a URL', 'error');
             result = await api.createSourceFromUrl(url, rule);
+        } else if (activeTab === 'git') {
+            const url = document.getElementById('import-git-url').value.trim();
+            if (!url) return toast('Enter a git repository URL', 'error');
+            const subpath = document.getElementById('import-git-subpath').value.trim() || null;
+            result = await api.createSourceFromGit(url, subpath, rule);
         }
 
         toast(`Imported: ${result.title}`, 'success');
@@ -202,6 +245,8 @@ async function doImport() {
         document.getElementById('import-text').value = '';
         document.getElementById('import-title').value = '';
         document.getElementById('import-url').value = '';
+        document.getElementById('import-git-url').value = '';
+        document.getElementById('import-git-subpath').value = '';
         document.getElementById('clean-preview').classList.add('hidden');
 
     } catch (e) {

@@ -21,7 +21,7 @@ def register_routes(bp):
 
     @bp.route('/sources', methods=['POST'])
     def create_source():
-        """Upload file, submit URL, or paste text."""
+        """Upload file, submit URL, paste text, or import git repository."""
         from app.studio.ingestion import ingest_file, ingest_paste, ingest_url
         from app.studio.normalizer import CleaningOptions, normalize_text
 
@@ -38,6 +38,15 @@ def register_routes(bp):
                     data = ingest_file(f)
                 else:
                     return jsonify({'error': 'No file selected'}), 400
+            # Git repository import
+            elif request.is_json and request.json.get('git_url'):
+                from app.studio.git_ingestion import ingest_git_repository
+
+                url = request.json['git_url']
+                subpath = request.json.get('git_subpath')
+                data = ingest_git_repository(url, subpath)
+                req_settings = request.json.get('cleaning_settings', {})
+                settings.update(req_settings)
             # URL import
             elif request.is_json and request.json.get('url'):
                 url_settings = request.json.get('url_settings', {})
@@ -57,7 +66,7 @@ def register_routes(bp):
                 req_settings = request.json.get('cleaning_settings', {})
                 settings.update(req_settings)
             else:
-                return jsonify({'error': 'Provide a file, url, or text'}), 400
+                return jsonify({'error': 'Provide a file, git_url, url, or text'}), 400
 
             # Create cleaning options from settings
             options = CleaningOptions(
@@ -246,6 +255,81 @@ def register_routes(bp):
 
         cleaned = normalize_text(data['text'], options)
         return jsonify({'cleaned_text': cleaned})
+
+    @bp.route('/preview-content', methods=['POST'])
+    def preview_content():
+        """Preview content without importing - for URL and git repos."""
+        from app.studio.normalizer import CleaningOptions, normalize_text
+        from app.studio.git_ingestion import preview_git_repository, is_git_url
+
+        data = request.json
+        if not data:
+            return jsonify({'error': 'Provide content type'}), 400
+
+        content_type = data.get('type')
+        db = get_db()
+        settings = _get_cleaning_settings(db)
+
+        options = CleaningOptions(
+            remove_non_text=settings.get('clean_remove_non_text', False),
+            handle_tables=settings.get('clean_handle_tables', True),
+            speak_urls=settings.get('clean_speak_urls', True),
+            expand_abbreviations=settings.get('clean_expand_abbreviations', True),
+            code_block_rule=settings.get('code_block_rule', 'skip'),
+            preserve_parentheses=settings.get('clean_preserve_parentheses', True),
+            preserve_structure=settings.get('preserve_structure', True),
+            paragraph_spacing=settings.get('paragraph_spacing', 2),
+            section_spacing=settings.get('section_spacing', 3),
+            list_item_spacing=settings.get('list_item_spacing', 1),
+        )
+
+        try:
+            if content_type == 'url':
+                from app.studio.ingestion import ingest_url
+
+                url = data.get('url')
+                if not url:
+                    return jsonify({'error': 'URL is required'}), 400
+
+                result = ingest_url(url, use_jina=True, jina_fallback=True)
+                cleaned = normalize_text(result['raw_text'], options)
+
+                return jsonify(
+                    {
+                        'title': result['title'],
+                        'raw_text': result['raw_text'][:10000],
+                        'cleaned_text': cleaned[:10000],
+                        'total_chars': len(result['raw_text']),
+                        'source_type': 'url_import',
+                    }
+                )
+
+            elif content_type == 'git':
+                url = data.get('url')
+                subpath = data.get('subpath')
+                if not url:
+                    return jsonify({'error': 'Git URL is required'}), 400
+
+                preview = preview_git_repository(url, subpath)
+                return jsonify(
+                    {
+                        'title': preview['suggested_title'],
+                        'files': preview['files'],
+                        'total_files': preview['total_files'],
+                        'total_chars': preview['total_chars'],
+                        'preview_text': preview['preview_text'],
+                        'source_type': 'git_repository',
+                    }
+                )
+
+            else:
+                return jsonify({'error': 'Invalid content type'}), 400
+
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        except Exception as e:
+            logger.exception('Preview content failed')
+            return jsonify({'error': str(e)}), 500
 
     # ── Chunking & Episodes ──────────────────────────────────────────────
 

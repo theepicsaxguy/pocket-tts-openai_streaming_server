@@ -1,8 +1,8 @@
 {
-  "name": "pocket-tts-studio",
+  "name": "openvox",
   "version": "2.3.0",
   "type": "module",
-  "description": "Podcast Studio frontend JavaScript",
+  "description": "OpenVox frontend JavaScript",
   "scripts": {
     "lint": "eslint static/js/",
     "lint:fix": "eslint static/js/ --fix"

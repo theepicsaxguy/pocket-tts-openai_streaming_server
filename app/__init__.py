@@ -1,5 +1,5 @@
 """
-PocketTTS OpenAI-Compatible Server
+OpenVox - Podcast Studio built on PocketTTS
 
 Flask application factory and initialization.
 """

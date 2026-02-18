@@ -73,14 +73,14 @@ def ingest_url(url: str, use_jina: bool = True, jina_fallback: bool = True) -> d
 
     # Try jina.ai first if enabled
     if use_jina:
-        raw_text = _fetch_with_jina(url)
+        raw_text, page_title = _fetch_with_jina_with_title(url)
         if raw_text:
             logger.info(f'Extracted content using jina.ai ({len(raw_text)} chars)')
             if len(raw_text) > MAX_FILE_SIZE:
                 raise ValueError(
                     f'Extracted text too large ({len(raw_text)} bytes). Maximum: {MAX_FILE_SIZE} bytes.'
                 )
-            title = _extract_title_from_url(url, raw_text)
+            title = _extract_title_from_url(url, raw_text, page_title)
             return {
                 'title': title,
                 'raw_text': raw_text,
@@ -92,7 +92,7 @@ def ingest_url(url: str, use_jina: bool = True, jina_fallback: bool = True) -> d
         logger.info('jina.ai extraction failed, falling back to trafilatura')
 
     # Fallback to trafilatura or direct fetch
-    raw_text = _fetch_with_trafilatura(url)
+    raw_text, page_title = _fetch_with_trafilatura(url)
 
     if not raw_text:
         raise ValueError('Could not extract readable text from URL.')
@@ -102,7 +102,7 @@ def ingest_url(url: str, use_jina: bool = True, jina_fallback: bool = True) -> d
             f'Extracted text too large ({len(raw_text)} bytes). Maximum: {MAX_FILE_SIZE} bytes.'
         )
 
-    title = _extract_title_from_url(url, raw_text)
+    title = _extract_title_from_url(url, raw_text, page_title)
 
     return {
         'title': title,
@@ -140,8 +140,15 @@ def _fetch_with_jina(url: str) -> str | None:
         return None
 
 
-def _fetch_with_trafilatura(url: str) -> str | None:
-    """Fetch content using trafilatura or direct request."""
+def _fetch_with_jina_with_title(url: str) -> tuple[str | None, str | None]:
+    """Fetch content using jina.ai. Returns (content, page_title)."""
+    content = _fetch_with_jina(url)
+    # jina.ai doesn't provide title metadata, so return None for title
+    return content, None
+
+
+def _fetch_with_trafilatura(url: str) -> tuple[str | None, str | None]:
+    """Fetch content using trafilatura or direct request. Returns (content, page_title)."""
     import requests
 
     try:
@@ -152,6 +159,7 @@ def _fetch_with_trafilatura(url: str) -> str | None:
 
     content_type = response.headers.get('Content-Type', '').lower()
     raw_text = None
+    page_title = None
 
     # Handle plain text and markdown files directly
     if (
@@ -174,15 +182,29 @@ def _fetch_with_trafilatura(url: str) -> str | None:
         if not downloaded:
             raise ValueError(f'Could not fetch URL: {url}')
 
-        raw_text = trafilatura.extract(
+        # Extract with metadata to get title
+        extracted = trafilatura.extract(
             downloaded,
             include_comments=False,
             include_tables=True,
             output_format='txt',
+            with_metadata=True,
         )
+
+        if extracted is None:
+            raise ValueError(f'Could not extract content from URL: {url}')
+
+        # trafilatura returns dict when with_metadata=True
+        if isinstance(extracted, dict):
+            raw_text = extracted.get('text', '')
+            metadata = extracted.get('metadata') or {}
+            page_title = metadata.get('title') or metadata.get('og:title') if metadata else None
+        else:
+            raw_text = extracted
+
         logger.info('Extracted text from HTML using trafilatura')
 
-    return raw_text
+    return raw_text, page_title
 
 
 def ingest_paste(text: str, title: str = None) -> dict:
@@ -241,16 +263,47 @@ def _clean_title(title: str) -> str:
     return title.strip()
 
 
-def _extract_title_from_url(url: str, text: str) -> str:
-    """Extract a title from URL content."""
+def _extract_title_from_url(url: str, text: str, page_title: str | None = None) -> str:
+    """Extract a title from URL content with metadata priority."""
+    # Priority 1: Page title from metadata
+    if page_title:
+        # Clean up common suffixes
+        title = page_title
+        suffixes = [
+            ' - GitHub',
+            ' | GitHub',
+            ' - Documentation',
+            ' | Documentation',
+            ' - Mozilla Developer Network',
+            ' - MDN Web Docs',
+            ' - npm',
+            ' - PyPI',
+            ' - Read the Docs',
+            ' - DevDocs',
+        ]
+        for suffix in suffixes:
+            if title.endswith(suffix):
+                title = title[: -len(suffix)]
+        return _clean_title(title[:100])
+
+    # Priority 2: First heading in content
     title = _extract_title(text, '')
     if title:
         return title
-    # Fallback to URL path
-    from urllib.parse import urlparse
+
+    # Priority 3: URL path
+    from urllib.parse import urlparse, unquote
 
     parsed = urlparse(url)
-    path = parsed.path.strip('/')
+    path = unquote(parsed.path).strip('/')
     if path:
-        return _clean_title(path.split('/')[-1].replace('-', ' ').replace('_', ' ').title()[:80])
+        # Get last meaningful segment
+        segments = path.split('/')
+        last = segments[-1]
+        # Remove file extensions
+        if '.' in last:
+            last = last.rsplit('.', 1)[0]
+        return _clean_title(last.replace('-', ' ').replace('_', ' ').title()[:80])
+
+    # Fallback to domain
     return parsed.netloc
