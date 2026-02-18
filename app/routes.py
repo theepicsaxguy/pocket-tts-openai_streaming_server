@@ -35,7 +35,7 @@ def home():
     """Serve the web interface."""
     from app.config import Config
 
-    return render_template('studio.html', is_docker=Config.IS_DOCKER)
+    return render_template('studio.html', is_docker=Config.IS_DOCKER, version=Config.VERSION)
 
 
 @api.route('/health', methods=['GET'])

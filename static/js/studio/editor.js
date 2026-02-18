@@ -9,6 +9,7 @@ import { toast, confirm as confirmDialog, showUndoToast } from './main.js';
 import { refreshTree } from './library.js';
 import { loadEpisode as playerLoadEpisode } from './player.js';
 import { escapeHtml, formatTime } from './utils.js';
+import { clearContent, createElement, createPills } from './dom.js';
 
 // ── View switching ──────────────────────────────────────────────────
 
@@ -268,10 +269,12 @@ async function loadReview(sourceId) {
 
         document.getElementById('review-title').textContent = source.title;
         document.getElementById('review-breadcrumb').textContent = source.title;
-        document.getElementById('review-meta').innerHTML = `
-            <span class="pill">${source.source_type}</span>
-            <span class="pill">${source.cleaned_text.length.toLocaleString()} chars</span>
-        `;
+        const reviewMeta = document.getElementById('review-meta');
+        reviewMeta.innerHTML = '';
+        reviewMeta.appendChild(createPills([
+            { text: source.source_type, className: '' },
+            { text: `${source.cleaned_text.length.toLocaleString()} chars`, className: '' }
+        ]));
         document.getElementById('review-cleaned-text').textContent = source.cleaned_text;
         document.getElementById('review-cleaned-textarea').value = source.cleaned_text;
 
@@ -471,10 +474,12 @@ function initReviewView() {
         try {
             await api.updateSource(sourceId, { cleaned_text: newText });
             textPreview.textContent = newText;
-            document.getElementById('review-meta').innerHTML = `
-                <span class="pill">text</span>
-                <span class="pill">${newText.length.toLocaleString()} chars</span>
-            `;
+            const metaEl = document.getElementById('review-meta');
+            metaEl.innerHTML = '';
+            metaEl.appendChild(createPills([
+                { text: 'text', className: '' },
+                { text: `${newText.length.toLocaleString()} chars`, className: '' }
+            ]));
             textPreview.classList.remove('hidden');
             textArea.classList.add('hidden');
             editActions.classList.add('hidden');
@@ -496,20 +501,20 @@ function initReviewView() {
 
 function renderChunkPreview(chunks, prefix = '') {
     const container = document.getElementById(`${prefix}-chunk-list`);
-    container.innerHTML = '';
+    clearContent(container);
     document.getElementById(`${prefix}-chunk-count`).textContent = chunks.length;
     document.getElementById(`${prefix}-chunk-preview`).classList.remove('hidden');
 
     for (const chunk of chunks) {
-        const card = document.createElement('div');
-        card.className = 'chunk-item';
-        card.innerHTML = `
-            <div class="chunk-header">
-                <span class="chunk-label">${chunk.label}</span>
-                <span class="chunk-stats">${chunk.text.length} chars</span>
-            </div>
-            <div class="chunk-preview-text">${escapeHtml(chunk.text.substring(0, 200))}${chunk.text.length > 200 ? '...' : ''}</div>
-        `;
+        const card = createElement('div', { className: 'chunk-item' }, [
+            createElement('div', { className: 'chunk-header' }, [
+                createElement('span', { className: 'chunk-label' }, [chunk.label]),
+                createElement('span', { className: 'chunk-stats' }, [`${chunk.text.length} chars`])
+            ]),
+            createElement('div', { className: 'chunk-preview-text' }, [
+                escapeHtml(chunk.text.substring(0, 200)) + (chunk.text.length > 200 ? '...' : '')
+            ])
+        ]);
         container.appendChild(card);
     }
 
@@ -530,11 +535,13 @@ async function loadSource(sourceId) {
 
         document.getElementById('source-title').textContent = source.title;
         document.getElementById('source-breadcrumb').textContent = source.title;
-        document.getElementById('source-meta').innerHTML = `
-            <span class="pill">${source.source_type}</span>
-            <span class="pill">${source.cleaned_text.length.toLocaleString()} chars</span>
-            <span class="pill">${new Date(source.created_at).toLocaleDateString()}</span>
-        `;
+        const sourceMeta = document.getElementById('source-meta');
+        sourceMeta.innerHTML = '';
+        sourceMeta.appendChild(createPills([
+            { text: source.source_type, className: '' },
+            { text: `${source.cleaned_text.length.toLocaleString()} chars`, className: '' },
+            { text: new Date(source.created_at).toLocaleDateString(), className: '' }
+        ]));
         document.getElementById('source-cleaned-text').textContent = source.cleaned_text;
         document.getElementById('source-cleaned-textarea').value = source.cleaned_text;
 
@@ -580,11 +587,13 @@ function initSourceView() {
             try {
                 await api.updateSource(sourceId, { cleaned_text: newText });
                 sourceTextPreview.textContent = newText;
-                document.getElementById('source-meta').innerHTML = `
-                    <span class="pill">text</span>
-                    <span class="pill">${newText.length.toLocaleString()} chars</span>
-                    <span class="pill">${new Date().toLocaleDateString()}</span>
-                `;
+                const sourceMetaEl = document.getElementById('source-meta');
+                sourceMetaEl.innerHTML = '';
+                sourceMetaEl.appendChild(createPills([
+                    { text: 'text', className: '' },
+                    { text: `${newText.length.toLocaleString()} chars`, className: '' },
+                    { text: new Date().toLocaleDateString(), className: '' }
+                ]));
                 sourceTextPreview.classList.remove('hidden');
                 sourceTextArea.classList.add('hidden');
                 sourceEditActions.classList.add('hidden');
@@ -755,11 +764,10 @@ function renderEpisode(episode) {
 
     // Chunks grid
     const container = document.getElementById('episode-chunks');
-    container.innerHTML = '';
+    clearContent(container);
 
     for (const chunk of (episode.chunks || [])) {
-        const card = document.createElement('div');
-        card.className = 'chunk-card';
+        const card = createElement('div', { className: 'chunk-card' });
         card.dataset.index = chunk.chunk_index;
         if (state.get('playingEpisodeId') === episode.id &&
             state.get('playingChunkIndex') === chunk.chunk_index) {
@@ -768,35 +776,56 @@ function renderEpisode(episode) {
 
         const isLongText = chunk.text.length > 150;
 
-        card.innerHTML = `
-            <div class="chunk-card-header">
-                <span class="chunk-num">${chunk.chunk_index + 1}</span>
-                <span class="chunk-status ${chunk.status}">${chunk.status}</span>
-            </div>
-            ${chunk.status === 'error' && chunk.error_message ? `<div class="chunk-error">${escapeHtml(chunk.error_message.substring(0, 120))}${chunk.error_message.length > 120 ? '...' : ''}</div>` : ''}
-            <div class="chunk-text" data-full-text="${escapeHtml(chunk.text)}">${escapeHtml(chunk.text.substring(0, 150))}${isLongText ? '...' : ''}</div>
-            ${isLongText ? '<div class="chunk-expand-indicator">Click to expand</div>' : ''}
-            <div class="chunk-footer">
-                <span class="chunk-duration">${chunk.duration_secs ? formatTime(chunk.duration_secs) : '—'}</span>
-                <div class="chunk-actions">
-                    ${chunk.status === 'ready' ? `
-                        <button class="chunk-btn play-chunk" title="Play" data-index="${chunk.chunk_index}">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                <polygon points="5 3 19 12 5 21 5 3"/>
-                            </svg>
-                        </button>
-                    ` : ''}
-                    ${(chunk.status === 'error' || chunk.status === 'ready') ? `
-                        <button class="chunk-btn regen-chunk" title="Regenerate" data-index="${chunk.chunk_index}">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="23 4 23 10 17 10"/>
-                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                            </svg>
-                        </button>
-                    ` : ''}
-                </div>
-            </div>
-        `;
+        const header = createElement('div', { className: 'chunk-card-header' }, [
+            createElement('span', { className: 'chunk-num' }, [String(chunk.chunk_index + 1)]),
+            createElement('span', { className: `chunk-status ${chunk.status}` }, [chunk.status])
+        ]);
+        card.appendChild(header);
+
+        if (chunk.status === 'error' && chunk.error_message) {
+            const errorDiv = createElement('div', { className: 'chunk-error' }, [
+                escapeHtml(chunk.error_message.substring(0, 120)) + (chunk.error_message.length > 120 ? '...' : '')
+            ]);
+            card.appendChild(errorDiv);
+        }
+
+        const textDiv = createElement('div', { className: 'chunk-text', data_full_text: escapeHtml(chunk.text) }, [
+            escapeHtml(chunk.text.substring(0, 150)) + (isLongText ? '...' : '')
+        ]);
+        card.appendChild(textDiv);
+
+        if (isLongText) {
+            const expandIndicator = createElement('div', { className: 'chunk-expand-indicator' }, ['Click to expand']);
+            card.appendChild(expandIndicator);
+        }
+
+        const footer = createElement('div', { className: 'chunk-footer' }, [
+            createElement('span', { className: 'chunk-duration' }, [chunk.duration_secs ? formatTime(chunk.duration_secs) : '—'])
+        ]);
+
+        const actionsDiv = createElement('div', { className: 'chunk-actions' });
+        if (chunk.status === 'ready') {
+            const playBtn = createElement('button', { className: 'chunk-btn play-chunk', title: 'Play', data_index: chunk.chunk_index });
+            playBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+            playBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                playerLoadEpisode(episode.id, chunk.chunk_index);
+            });
+            actionsDiv.appendChild(playBtn);
+        }
+        if (chunk.status === 'error' || chunk.status === 'ready') {
+            const regenBtn = createElement('button', { className: 'chunk-btn regen-chunk', title: 'Regenerate', data_index: chunk.chunk_index });
+            regenBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
+            regenBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await api.regenerateChunk(episode.id, chunk.chunk_index);
+                toast('Chunk queued for regeneration', 'info');
+                loadEpisode(episode.id);
+            });
+            actionsDiv.appendChild(regenBtn);
+        }
+        footer.appendChild(actionsDiv);
+        card.appendChild(footer);
 
         // Expand/collapse on click
         card.addEventListener('click', (e) => {
@@ -813,26 +842,6 @@ function renderEpisode(episode) {
                 textEl.textContent = escapeHtml(chunk.text.substring(0, 150)) + (chunk.text.length > 150 ? '...' : '');
             }
         });
-
-        // Play handler
-        const playBtn = card.querySelector('.play-chunk');
-        if (playBtn) {
-            playBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                playerLoadEpisode(episode.id, chunk.chunk_index);
-            });
-        }
-
-        // Regenerate handler
-        const regenBtn = card.querySelector('.regen-chunk');
-        if (regenBtn) {
-            regenBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                await api.regenerateChunk(episode.id, chunk.chunk_index);
-                toast('Chunk queued for regeneration', 'info');
-                loadEpisode(episode.id);
-            });
-        }
 
         // Card click to play
         card.addEventListener('click', () => {
@@ -1028,28 +1037,22 @@ async function initLibraryView() {
         if (episodes.length === 0) {
             container.innerHTML = '<div class="empty-state"><p>No episodes yet</p></div>';
         } else {
-            container.innerHTML = episodes.map(ep => `
-                <div class="library-card" data-episode-id="${ep.id}" data-chunk-index="0">
-                    <div class="library-card-artwork">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                            <polygon points="5 3 19 12 5 21 5 3"/>
-                        </svg>
-                    </div>
-                    <div class="library-card-info">
-                        <h4>${escapeHtml(ep.title)}</h4>
-                        <p>${ep.chunk_count || 0} chunks</p>
-                    </div>
-                    <span class="library-card-status ${ep.status}">${ep.status}</span>
-                </div>
-            `).join('');
-
-            // Add click handlers
-            container.querySelectorAll('.library-card').forEach(card => {
+            clearContent(container);
+            for (const ep of episodes) {
+                const card = createElement('div', { className: 'library-card', data_episode_id: ep.id, data_chunk_index: 0 });
+                card.innerHTML = `<div class="library-card-artwork"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>`;
+                const info = createElement('div', { className: 'library-card-info' }, [
+                    createElement('h4', {}, [escapeHtml(ep.title)]),
+                    createElement('p', {}, [`${ep.chunk_count || 0} chunks`])
+                ]);
+                card.appendChild(info);
+                const status = createElement('span', { className: `library-card-status ${ep.status}` }, [ep.status]);
+                card.appendChild(status);
                 card.addEventListener('click', () => {
-                    const epId = card.dataset.episodeId;
-                    window.location.hash = `#episode/${epId}`;
+                    window.location.hash = `#episode/${ep.id}`;
                 });
-            });
+                container.appendChild(card);
+            }
         }
 
         // Load sources
@@ -1059,27 +1062,20 @@ async function initLibraryView() {
         if (sources.length === 0) {
             sourcesContainer.innerHTML = '<div class="empty-state"><p>No sources yet</p></div>';
         } else {
-            sourcesContainer.innerHTML = sources.map(src => `
-                <div class="library-card" data-source-id="${src.id}">
-                    <div class="library-card-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                        </svg>
-                    </div>
-                    <div class="library-card-info">
-                        <h4>${escapeHtml(src.title)}</h4>
-                        <p>${src.source_type}</p>
-                    </div>
-                </div>
-            `).join('');
-
-            sourcesContainer.querySelectorAll('.library-card').forEach(card => {
+            clearContent(sourcesContainer);
+            for (const src of sources) {
+                const card = createElement('div', { className: 'library-card', data_source_id: src.id });
+                card.innerHTML = `<div class="library-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>`;
+                const info = createElement('div', { className: 'library-card-info' }, [
+                    createElement('h4', {}, [escapeHtml(src.title)]),
+                    createElement('p', {}, [src.source_type])
+                ]);
+                card.appendChild(info);
                 card.addEventListener('click', () => {
-                    const srcId = card.dataset.sourceId;
-                    window.location.hash = `#source/${srcId}`;
+                    window.location.hash = `#source/${src.id}`;
                 });
-            });
+                sourcesContainer.appendChild(card);
+            }
         }
     } catch (err) {
         console.error('Failed to load library:', err);

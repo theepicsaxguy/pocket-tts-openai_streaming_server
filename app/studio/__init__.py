@@ -16,9 +16,24 @@ def init_studio(app):
 
     app.teardown_appcontext(lambda exc: close_db())
 
-    from app.studio.routes import register_routes
+    from app.studio import (
+        episodes_routes,
+        folders_routes,
+        library_routes,
+        playback_routes,
+        settings_routes,
+        sources_routes,
+        tags_routes,
+    )
 
-    register_routes(studio_bp)
+    sources_routes.register_routes(studio_bp)
+    episodes_routes.register_routes(studio_bp)
+    folders_routes.register_routes(studio_bp)
+    tags_routes.register_routes(studio_bp)
+    playback_routes.register_routes(studio_bp)
+    settings_routes.register_routes(studio_bp)
+    library_routes.register_routes(studio_bp)
+
     app.register_blueprint(studio_bp)
 
     from app.studio.generation import get_generation_queue

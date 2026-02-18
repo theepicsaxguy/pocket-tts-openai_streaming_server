@@ -127,9 +127,66 @@ This is NOT a developer tool. It's a consumer product.
 
 ### P3
 - [ ] **PWA/offline**
-  - Service worker caching
-  - Playback offline
-  - Queue sync
+   - Service worker caching
+   - Playback offline
+   - Queue sync
+
+---
+
+## 📖 Content Accessibility Features
+
+*Features inspired by Speechify and Natural Reader for enhanced accessibility and productivity*
+
+### P1 (High Priority)
+- [ ] **Extended Speed Control** — 0.5x to 9x playback (Speechify feature)
+  - Browser audio processing to exceed native limits
+  - Preset speeds: 0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x, 3x, 4.5x, 9x
+  - Fine-grained slider in player
+
+- [ ] **OCR / Camera Scanning** — Scan physical books (Speechify's standout feature)
+  - Use Tesseract.js in browser for client-side OCR
+  - Camera capture via getUserMedia API
+  - Support for photographed documents, handwritten notes
+  - Server-side fallback with pytesseract for batch processing
+
+- [ ] **Pronunciation Editor** — Custom word pronunciations (Natural Reader feature)
+  - Dictionary UI per source
+  - IPA or phonetic spelling support
+  - Bulk import/export pronunciation lists
+
+### P2 (Medium Priority)
+- [ ] **MP3 Export** — Downloadable audio files (Natural Reader wins here)
+  - Convert WAV to MP3 on server using pydub
+  - Bitrate options: 64kbps, 128kbps, 192kbps, 320kbps
+  - Batch export for playlists
+
+- [ ] **Dyslexia Font Support** — Reading accessibility
+  - OpenDyslexic font option in settings
+  - Toggle in player for subtitle display
+  - Adjustable letter spacing
+
+- [ ] **Floating Toolbar** — Persistent TTS bar (Natural Reader feature)
+  - Always-on-top mini player
+  - Global keyboard shortcut activation
+  - Works across browser tabs (as browser extension concept)
+
+- [ ] **Bookmarking & Annotations** — Study features
+  - Save timestamps with notes
+  - Highlight passages
+  - Export annotations as markdown
+
+### P3 (Lower Priority)
+- [ ] **Dictionary Lookup** — Tap word for definition
+  - Integrate free dictionary API
+  - Show in subtitle overlay
+
+- [ ] **Highlight & Repeat** — Loop sections
+  - A-B loop controls in player
+  - Save loop points for reuse
+
+- [ ] **AI Smart Filtering** — Auto-skip non-content
+  - Detect and skip headers, page numbers, footers
+  - Configurable filters in cleaning settings
 
 ---
 
@@ -158,10 +215,12 @@ This is NOT a developer tool. It's a consumer product.
   - Token management UI
   - Rate limiting
 
-### P3
-- [ ] **Webhooks**
-  - Events: generation complete, import failed
-  - Configurable retry
+### P2
+- [ ] **WebSockets**
+  - Real-time generation progress updates
+  - Live playback position sync across clients
+  - Import progress streaming
+  - Connection status indicator in UI
 
 ---
 
@@ -181,8 +240,54 @@ This is NOT a developer tool. It's a consumer product.
 
 ### P3
 - [ ] **Home Assistant**
-  - TTS entity for HA
-  - Automations
+   - TTS entity for HA
+   - Automations
+
+---
+
+## Technical Implementation Notes
+
+### New Dependencies
+```
+# Backend
+pytesseract>=0.3.10    # OCR processing
+pydub>=0.25.1          # MP3 conversion
+
+# Frontend (CDN)
+tesseract.js            # Client-side OCR
+```
+
+### Database Schema Additions
+```sql
+-- pronunciation_dictionary table
+CREATE TABLE pronunciation_dictionary (
+    id TEXT PRIMARY KEY,
+    source_id TEXT,
+    word TEXT,
+    pronunciation TEXT,
+    FOREIGN KEY(source_id) REFERENCES sources(id)
+);
+
+-- bookmarks table  
+CREATE TABLE bookmarks (
+    id TEXT PRIMARY KEY,
+    episode_id TEXT,
+    chunk_index INTEGER,
+    position_secs REAL,
+    note TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(episode_id) REFERENCES episodes(id)
+);
+```
+
+### New API Endpoints
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/studio/sources/{id}/pronunciations` | POST | Set pronunciation dictionary |
+| `/api/studio/sources/ocr` | POST | Upload image for OCR |
+| `/api/studio/bookmarks` | POST | Create bookmark |
+| `/api/studio/episodes/{id}/bookmarks` | GET | Get episode bookmarks |
+| `/api/studio/export/mp3` | POST | Convert and export MP3 |
 
 ---
 

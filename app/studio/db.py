@@ -3,6 +3,7 @@ SQLite database setup, migrations, and connection management.
 """
 
 import sqlite3
+from typing import Any
 
 from flask import g
 
@@ -123,7 +124,7 @@ def get_db() -> sqlite3.Connection:
     return g.studio_db
 
 
-def close_db():
+def close_db() -> None:
     """Close the database connection for the current request."""
     db = g.pop('studio_db', None)
     if db is not None:
@@ -167,7 +168,7 @@ MIGRATIONS = [
 ]
 
 
-def run_migrations(conn: sqlite3.Connection):
+def run_migrations(conn: sqlite3.Connection) -> None:
     """Run any pending database migrations."""
     try:
         for i, migration in enumerate(MIGRATIONS, start=1):
@@ -184,7 +185,7 @@ def run_migrations(conn: sqlite3.Connection):
         logger.error(f'Error running migrations: {e}')
 
 
-def init_db():
+def init_db() -> None:
     """Initialize the database schema."""
     import os
 
@@ -196,16 +197,13 @@ def init_db():
     conn.execute('PRAGMA foreign_keys=ON')
     conn.executescript(SCHEMA_SQL)
 
-    # Set schema version
     existing = conn.execute('SELECT version FROM schema_version').fetchone()
     if not existing:
         conn.execute('INSERT INTO schema_version (version) VALUES (?)', (SCHEMA_VERSION,))
 
-    # Run migrations
     run_migrations(conn)
 
-    # Insert default settings
-    default_settings = [
+    default_settings: list[tuple[str, str]] = [
         ('show_subtitles', 'true'),
         ('subtitle_mode', 'full'),
         ('subtitle_font_size', '16'),

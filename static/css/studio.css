@@ -522,6 +522,16 @@ body.bulk-selection-mode .tree-item.selected::after {
 .sidebar-footer {
   padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.version-tag {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  opacity: 0.6;
 }
 
 .generation-status-compact {

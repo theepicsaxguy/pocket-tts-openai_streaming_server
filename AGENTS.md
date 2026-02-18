@@ -27,10 +27,19 @@ server.py                    # Entry point, CLI, starts Waitress
         └── app/studio/      # Podcast Studio feature set
             ├── __init__.py  # Blueprint registration
             ├── db.py        # SQLite persistence (no ORM)
-            ├── routes.py    # Studio API endpoints
+            ├── repositories.py # DB query abstraction layer
+            ├── sources_routes.py   # Source CRUD endpoints
+            ├── episodes_routes.py  # Episode CRUD endpoints
+            ├── folders_routes.py   # Folder CRUD endpoints
+            ├── tags_routes.py      # Tag CRUD endpoints
+            ├── playback_routes.py  # Playback state endpoints
+            ├── settings_routes.py  # Settings endpoints
+            ├── library_routes.py   # Library tree, generation status
             ├── ingestion.py # File/URL/text import
+            ├── git_ingestion.py   # Git repository import
             ├── normalizer.py # Text cleaning/normalization
             ├── chunking.py  # Text chunking strategies
+            ├── breathing.py # Natural pause insertion
             ├── generation.py # Single-worker audio generation queue
             └── audio_assembly.py # Merge chunks to full episode
 ```
@@ -43,7 +52,14 @@ server.py                    # Entry point, CLI, starts Waitress
 | `app/routes.py` | HTTP endpoints: `/`, `/health`, `/v1/voices`, `/v1/audio/speech` |
 | `app/services/tts.py` | Model loading, voice caching, generation |
 | `app/services/audio.py` | Audio format conversion, streaming |
-| `app/studio/routes.py` | Studio API: sources, episodes, library, playback |
+| `app/studio/repositories.py` | DB query abstraction (Source, Episode, Chunk, Folder, Tag, Playback, Settings) |
+| `app/studio/sources_routes.py` | Source CRUD, cover art, re-clean |
+| `app/studio/episodes_routes.py` | Episode CRUD, chunk audio, regenerate |
+| `app/studio/folders_routes.py` | Folder CRUD, playlist |
+| `app/studio/tags_routes.py` | Tag management |
+| `app/studio/playback_routes.py` | Playback state |
+| `app/studio/settings_routes.py` | User settings |
+| `app/studio/library_routes.py` | Library tree, generation status, preview |
 | `app/studio/db.py` | SQLite schema and connection management |
 | `app/studio/generation.py` | Background audio generation queue |
 | `templates/studio.html` | Mobile-first Studio UI shell |
@@ -127,6 +143,10 @@ curl -X POST http://localhost:49112/v1/audio/speech \
 - Single quotes
 - Type hints optional but encouraged
 
+## Roadmap
+
+See [ROADMAP.md](./ROADMAP.md) for feature priorities and upcoming work.
+
 ## Deployment
 
 - Docker-first with non-root user
@@ -186,11 +206,18 @@ JavaScript modules:
 - `home.js` - Home feed
 - `library.js` - Library view, folder tree
 - `search.js` - Search functionality
-- `player.js` - Fullscreen player, mini player
+- `player.js` - Player coordinator (re-exports all player modules)
+- `player-state.js` - Player state management
+- `player-controls.js` - Play/pause, seek, volume controls
+- `player-queue.js` - Queue management, shuffle, repeat
+- `player-waveform.js` - Waveform visualization
+- `player-render.js` - Mini/full player rendering
+- `player-chunk.js` - Chunk loading and playback
 - `editor.js` - Import, source, episode views
 - `settings.js` - Settings panel
 - `api.js` - API client
 - `state.js` - Pub/sub state management
+- `dom.js` - Safe DOM manipulation helpers
 
 ## Design Principles
 
@@ -212,7 +239,9 @@ NEVER use: generic AI slop aesthetics, overused fonts, cliched purple gradients,
 ### SOLID Principles (Python)
 
 - **S**ingle Responsibility: Each module/class should do one thing well
-  - `routes.py` handles HTTP, `db.py` handles persistence, `generation.py` handles queue
+  - Route modules handle HTTP (`sources_routes.py`, `episodes_routes.py`, etc.)
+  - `db.py` handles persistence, `generation.py` handles queue
+  - Repositories handle all database queries
 - **O**pen/Closed: Open for extension, closed for modification
   - Add new chunking strategies without modifying existing code
   - Add new cleaning options via options object, not if/else chains
@@ -226,10 +255,12 @@ NEVER use: generic AI slop aesthetics, overused fonts, cliched purple gradients,
 Before writing new code, check if existing solutions exist:
 
 1. **Frontend utilities**: Check `main.js` for `escapeHtml`, `formatTime`, `toast`, `confirm`, etc.
-2. **State management**: Use `state.js` pub/sub - don't create new event systems
-3. **API calls**: Use `api.js` functions, add new endpoints there
-4. **CSS utilities**: Check existing classes in `studio.css` before adding new styles
-5. **Python utilities**: Check `app/studio/` for existing helpers before adding new modules
+2. **DOM helpers**: Use `dom.js` for safe DOM manipulation (`setText`, `fromHTML`, `createElement`)
+3. **State management**: Use `state.js` pub/sub - don't create new event systems
+4. **API calls**: Use `api.js` functions, add new endpoints there
+5. **CSS utilities**: Check existing classes in `studio.css` before adding new styles
+6. **Python utilities**: Check `app/studio/` for existing helpers before adding new modules
+7. **Database queries**: Use repository classes in `repositories.py` instead of raw SQL
 
 Avoid:
 - Reinventing common patterns (modals, toasts, dropdowns already exist)
@@ -237,7 +268,64 @@ Avoid:
 - Adding new state management when `state.js` suffices
 - Creating custom CSS when existing classes work
 
-### Additional Guidelines
+## Code Organization Principles
+
+### Python Backend
+
+**Route Module Splitting**
+- Split large route files (>500 lines) into domain-specific modules
+- Each domain gets its own file: `sources_routes.py`, `episodes_routes.py`, etc.
+- All route modules must have `register_routes(bp)` function
+- Register all route modules in `__init__.py`
+
+**Database Layer**
+- Never put raw SQL in route handlers - use repository classes
+- Create repository classes in `repositories.py` for each entity
+- Repository methods take `db` connection as first parameter
+- Use parameterized queries exclusively (no SQL injection)
+
+**Import Convention**
+- All imports at top of file (never inline `import` inside functions)
+- Order: stdlib → third-party → local imports
+- Example:
+  ```python
+  import os
+  import uuid
+  from flask import jsonify, request
+  from app.config import Config
+  from app.studio.db import get_db
+  from app.studio.repositories import SourceRepository
+  ```
+
+**Type Hints**
+- Add type hints to all function signatures
+- Use `sqlite3.Row | None` for optional database rows
+- Add return types to route handlers
+
+### JavaScript Frontend
+
+**Module Splitting**
+- Split monolithic files (>500 lines) into focused modules
+- Player code split into: state, controls, queue, waveform, render, chunk
+- Use ES modules with explicit exports
+
+**DOM Safety**
+- Never use `innerHTML` with user-provided data
+- Use `dom.js` helpers: `setText()`, `fromHTML()`, `createElement()`
+- Only use `innerHTML` for trusted static content (SVG icons, server-trusted API responses)
+
+**State Management**
+- Use `state.js` pub/sub for shared state
+- Never create new event systems
+- Sync state across components (mini player ↔ full player)
+
+### Dead Code Removal
+
+- Remove unused files immediately (templates, JS, CSS)
+- Delete old route files when splitting
+- Update CI configs to remove ignores for deleted files
+
+## Additional Guidelines
 
 1. **UI State Synchronization**: When multiple UI components share state (e.g., mini player and fullscreen player), changes in one must sync to the other. Use localStorage or shared event handlers.
 

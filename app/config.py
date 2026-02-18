@@ -7,6 +7,19 @@ import os
 import sys
 from pathlib import Path
 
+try:
+    import importlib.metadata as metadata
+except ImportError:
+    import importlib_metadata as metadata
+
+
+def get_version() -> str:
+    """Get the application version from pyproject.toml or package metadata."""
+    try:
+        return metadata.version('pocket-tts-openai-server')
+    except Exception:
+        return '0.0.1'
+
 
 def get_base_path() -> Path:
     """Get the base path for the application, handling PyInstaller frozen state."""
@@ -22,6 +35,8 @@ def get_base_path() -> Path:
 
 class Config:
     """Application configuration loaded from environment variables."""
+
+    VERSION = get_version()
 
     # Base paths
     BASE_PATH = get_base_path()
