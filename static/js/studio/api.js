@@ -139,6 +139,14 @@ export function undoRegeneration(undoId) {
     return request(`/undo/${undoId}`, { method: 'POST' });
 }
 
+export function cancelEpisode(id) {
+    return request(`/episodes/${id}/cancel`, { method: 'POST' });
+}
+
+export function retryErrors(id) {
+    return request(`/episodes/${id}/retry-errors`, { method: 'POST' });
+}
+
 export function chunkAudioUrl(episodeId, chunkIndex) {
     return `${BASE}/episodes/${episodeId}/audio/${chunkIndex}`;
 }

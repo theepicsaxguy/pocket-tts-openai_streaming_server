@@ -739,6 +739,85 @@ def register_routes(bp):
         get_generation_queue().enqueue(episode_id)
         return jsonify({'ok': True})
 
+    @bp.route('/episodes/<episode_id>/cancel', methods=['POST'])
+    def cancel_episode(episode_id):
+        """Cancel a generating episode and reset error chunks to pending."""
+        from app.studio.generation import get_generation_queue
+
+        db = get_db()
+        episode = db.execute('SELECT status FROM episodes WHERE id = ?', (episode_id,)).fetchone()
+
+        if not episode:
+            return jsonify({'error': 'Episode not found'}), 404
+
+        gq = get_generation_queue()
+
+        if gq.current_episode_id == episode_id:
+            gq.cancel_current()
+
+        error_chunks = db.execute(
+            "SELECT id, audio_path FROM chunks WHERE episode_id = ? AND status = 'error'",
+            (episode_id,),
+        ).fetchall()
+
+        for chunk in error_chunks:
+            if chunk['audio_path']:
+                path = os.path.join(Config.STUDIO_AUDIO_DIR, chunk['audio_path'])
+                if os.path.exists(path):
+                    os.remove(path)
+            db.execute(
+                "UPDATE chunks SET status = 'pending', audio_path = NULL, "
+                'duration_secs = NULL, error_message = NULL WHERE id = ?',
+                (chunk['id'],),
+            )
+
+        db.execute(
+            "UPDATE episodes SET status = 'pending', updated_at = datetime('now') WHERE id = ?",
+            (episode_id,),
+        )
+        db.commit()
+
+        return jsonify({'ok': True, 'reset_chunks': len(error_chunks)})
+
+    @bp.route('/episodes/<episode_id>/retry-errors', methods=['POST'])
+    def retry_errors(episode_id):
+        """Retry all error chunks for an episode."""
+        from app.studio.generation import get_generation_queue
+
+        db = get_db()
+        episode = db.execute('SELECT status FROM episodes WHERE id = ?', (episode_id,)).fetchone()
+
+        if not episode:
+            return jsonify({'error': 'Episode not found'}), 404
+
+        error_chunks = db.execute(
+            "SELECT id, audio_path FROM chunks WHERE episode_id = ? AND status = 'error'",
+            (episode_id,),
+        ).fetchall()
+
+        if not error_chunks:
+            return jsonify({'ok': True, 'message': 'No error chunks to retry'})
+
+        for chunk in error_chunks:
+            if chunk['audio_path']:
+                path = os.path.join(Config.STUDIO_AUDIO_DIR, chunk['audio_path'])
+                if os.path.exists(path):
+                    os.remove(path)
+            db.execute(
+                "UPDATE chunks SET status = 'pending', audio_path = NULL, "
+                'duration_secs = NULL, error_message = NULL WHERE id = ?',
+                (chunk['id'],),
+            )
+
+        db.execute(
+            "UPDATE episodes SET status = 'pending', updated_at = datetime('now') WHERE id = ?",
+            (episode_id,),
+        )
+        db.commit()
+
+        get_generation_queue().enqueue(episode_id)
+        return jsonify({'ok': True, 'retried': len(error_chunks)})
+
     @bp.route('/episodes/<episode_id>/audio/<int:chunk_index>', methods=['GET'])
     def serve_chunk_audio(episode_id, chunk_index):
         """Serve a chunk's audio file."""

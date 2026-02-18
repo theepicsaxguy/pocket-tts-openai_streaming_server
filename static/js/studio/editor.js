@@ -272,6 +272,10 @@ async function loadReview(sourceId) {
             <span class="pill">${source.cleaned_text.length.toLocaleString()} chars</span>
         `;
         document.getElementById('review-cleaned-text').textContent = source.cleaned_text;
+        document.getElementById('review-cleaned-textarea').value = source.cleaned_text;
+
+        // Show Edit button
+        document.getElementById('btn-edit-text').style.display = 'inline-flex';
 
         // Populate voice selector
         await populateVoiceSelect('review-voice');
@@ -395,6 +399,50 @@ function initReviewView() {
             }
         });
     }
+
+    // Edit text functionality
+    const editBtn = document.getElementById('btn-edit-text');
+    const saveBtn = document.getElementById('btn-save-text');
+    const cancelBtn = document.getElementById('btn-cancel-edit');
+    const textPreview = document.getElementById('review-cleaned-text');
+    const textArea = document.getElementById('review-cleaned-textarea');
+    const editActions = document.getElementById('review-edit-actions');
+
+    editBtn.addEventListener('click', () => {
+        textPreview.classList.add('hidden');
+        textArea.classList.remove('hidden');
+        editActions.classList.remove('hidden');
+        editBtn.style.display = 'none';
+        textArea.focus();
+    });
+
+    saveBtn.addEventListener('click', async () => {
+        const sourceId = state.get('currentSourceId');
+        const newText = textArea.value;
+        try {
+            await api.updateSource(sourceId, { cleaned_text: newText });
+            textPreview.textContent = newText;
+            document.getElementById('review-meta').innerHTML = `
+                <span class="pill">text</span>
+                <span class="pill">${newText.length.toLocaleString()} chars</span>
+            `;
+            textPreview.classList.remove('hidden');
+            textArea.classList.add('hidden');
+            editActions.classList.add('hidden');
+            editBtn.style.display = 'inline-flex';
+            toast('Text saved', 'success');
+        } catch (e) {
+            toast(e.message, 'error');
+        }
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        textArea.value = textPreview.textContent;
+        textPreview.classList.remove('hidden');
+        textArea.classList.add('hidden');
+        editActions.classList.add('hidden');
+        editBtn.style.display = 'inline-flex';
+    });
 }
 
 function renderChunkPreview(chunks, prefix = '') {
@@ -439,6 +487,7 @@ async function loadSource(sourceId) {
             <span class="pill">${new Date(source.created_at).toLocaleDateString()}</span>
         `;
         document.getElementById('source-cleaned-text').textContent = source.cleaned_text;
+        document.getElementById('source-cleaned-textarea').value = source.cleaned_text;
 
     } catch (e) {
         toast(e.message, 'error');
@@ -448,6 +497,66 @@ async function loadSource(sourceId) {
 }
 
 function initSourceView() {
+    // Edit text functionality for source view
+    const editBtn = document.getElementById('btn-edit-text');
+    const textPreview = document.getElementById('source-cleaned-text');
+    const textArea = document.getElementById('source-cleaned-textarea');
+    const editActions = document.getElementById('source-edit-actions');
+
+    // For source view, we need a different approach - let's add a button dynamically
+    // Actually let's add it in the HTML template and show it here
+
+    // Source view edit text functionality
+    const sourceEditBtn = document.getElementById('btn-edit-source-text');
+    const sourceSaveBtn = document.getElementById('btn-save-source-text');
+    const sourceCancelBtn = document.getElementById('btn-cancel-source-edit');
+    const sourceTextPreview = document.getElementById('source-cleaned-text');
+    const sourceTextArea = document.getElementById('source-cleaned-textarea');
+    const sourceEditActions = document.getElementById('source-edit-actions');
+
+    if (sourceEditBtn) {
+        sourceEditBtn.addEventListener('click', () => {
+            sourceTextPreview.classList.add('hidden');
+            sourceTextArea.classList.remove('hidden');
+            sourceEditActions.classList.remove('hidden');
+            sourceEditBtn.style.display = 'none';
+            sourceTextArea.focus();
+        });
+    }
+
+    if (sourceSaveBtn) {
+        sourceSaveBtn.addEventListener('click', async () => {
+            const sourceId = state.get('currentSourceId');
+            const newText = sourceTextArea.value;
+            try {
+                await api.updateSource(sourceId, { cleaned_text: newText });
+                sourceTextPreview.textContent = newText;
+                document.getElementById('source-meta').innerHTML = `
+                    <span class="pill">text</span>
+                    <span class="pill">${newText.length.toLocaleString()} chars</span>
+                    <span class="pill">${new Date().toLocaleDateString()}</span>
+                `;
+                sourceTextPreview.classList.remove('hidden');
+                sourceTextArea.classList.add('hidden');
+                sourceEditActions.classList.add('hidden');
+                sourceEditBtn.style.display = 'inline-flex';
+                toast('Text saved', 'success');
+            } catch (e) {
+                toast(e.message, 'error');
+            }
+        });
+    }
+
+    if (sourceCancelBtn) {
+        sourceCancelBtn.addEventListener('click', () => {
+            sourceTextArea.value = sourceTextPreview.textContent;
+            sourceTextPreview.classList.remove('hidden');
+            sourceTextArea.classList.add('hidden');
+            sourceEditActions.classList.add('hidden');
+            sourceEditBtn.style.display = 'inline-flex';
+        });
+    }
+
     // Re-clean
     document.getElementById('btn-reclean').addEventListener('click', async () => {
         const id = state.get('currentSourceId');
@@ -552,6 +661,8 @@ function renderEpisode(episode) {
     // Generation status detail
     const genStageEl = document.getElementById('gen-stage');
     const genChunkInfoEl = document.getElementById('gen-chunk-info');
+    const errorChunks = episode.chunks?.filter(c => c.status === 'error') || [];
+    const errorCount = errorChunks.length;
 
     if (episode.status === 'pending') {
         genStageEl.textContent = 'Waiting in queue...';
@@ -572,9 +683,25 @@ function renderEpisode(episode) {
         genStageEl.className = 'gen-stage ready';
         genChunkInfoEl.textContent = `${totalChunks} chunks · ${duration} · ${episode.voice_id}`;
     } else if (episode.status === 'error') {
-        genStageEl.textContent = 'Generation failed';
+        const firstError = errorChunks[0]?.error_message || 'Unknown error';
+        genStageEl.textContent = `Generation failed (${errorCount} chunk${errorCount > 1 ? 's' : ''})`;
         genStageEl.className = 'gen-stage error';
-        genChunkInfoEl.textContent = '';
+        genChunkInfoEl.textContent = firstError.length > 100 ? firstError.substring(0, 100) + '...' : firstError;
+    }
+
+    // Show/hide Cancel and Retry buttons
+    const cancelBtn = document.getElementById('btn-cancel-episode');
+    const retryBtn = document.getElementById('btn-retry-errors');
+    if (episode.status === 'generating' || episode.status === 'pending') {
+        cancelBtn.style.display = 'inline-flex';
+    } else {
+        cancelBtn.style.display = 'none';
+    }
+    if (errorCount > 0) {
+        retryBtn.style.display = 'inline-flex';
+        retryBtn.textContent = `Retry Failed (${errorCount})`;
+    } else {
+        retryBtn.style.display = 'none';
     }
 
     // Chunks grid
@@ -597,6 +724,7 @@ function renderEpisode(episode) {
                 <span class="chunk-num">${chunk.chunk_index + 1}</span>
                 <span class="chunk-status ${chunk.status}">${chunk.status}</span>
             </div>
+            ${chunk.status === 'error' && chunk.error_message ? `<div class="chunk-error">${escapeHtml(chunk.error_message.substring(0, 120))}${chunk.error_message.length > 120 ? '...' : ''}</div>` : ''}
             <div class="chunk-text" data-full-text="${escapeHtml(chunk.text)}">${escapeHtml(chunk.text.substring(0, 150))}${isLongText ? '...' : ''}</div>
             ${isLongText ? '<div class="chunk-expand-indicator">Click to expand</div>' : ''}
             <div class="chunk-footer">
@@ -758,6 +886,23 @@ function initEpisodeView() {
             toast('Episode queued for regeneration', 'info');
             loadEpisode(id);
         }
+    });
+
+    document.getElementById('btn-cancel-episode').addEventListener('click', async () => {
+        const id = state.get('currentEpisodeId');
+        const ok = await confirmDialog('Cancel Generation', 'Stop generation and reset error chunks to pending?');
+        if (ok) {
+            await api.cancelEpisode(id);
+            toast('Generation cancelled', 'info');
+            loadEpisode(id);
+        }
+    });
+
+    document.getElementById('btn-retry-errors').addEventListener('click', async () => {
+        const id = state.get('currentEpisodeId');
+        await api.retryErrors(id);
+        toast('Retrying failed chunks', 'info');
+        loadEpisode(id);
     });
 
     document.getElementById('btn-download-episode').addEventListener('click', () => {
