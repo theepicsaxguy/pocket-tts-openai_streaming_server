@@ -31,10 +31,6 @@ on:
         description: 'The tag of the built image'
         value: ${{ jobs.build.outputs.image_tag }}
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
