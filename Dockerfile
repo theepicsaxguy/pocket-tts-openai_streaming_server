@@ -2,7 +2,7 @@
 # Optimized for CPU inference (pocket-tts runs efficiently on CPU)
 # Uses CPU-only PyTorch for smaller image size (~700MB vs ~2GB)
 
-FROM python:3.10-slim AS builder
+FROM python:3.14-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 
 # Production image
-FROM python:3.10-slim
+FROM python:3.14-slim
 
 # Install runtime dependencies for audio processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
