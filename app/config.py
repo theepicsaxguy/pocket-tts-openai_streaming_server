@@ -1,5 +1,5 @@
 """
-Configuration management for PocketTTS OpenAI Server.
+Configuration management for OpenVox.
 Loads settings from environment variables with sensible defaults.
 """
 

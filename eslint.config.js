@@ -1,4 +1,4 @@
-// eslint.config.js - Podcast Studio JavaScript Linting Configuration
+// eslint.config.js - OpenVox JavaScript Linting Configuration
 import js from '@eslint/js';
 
 export default [

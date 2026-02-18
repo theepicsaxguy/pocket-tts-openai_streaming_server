@@ -1,5 +1,5 @@
 """
-Podcast Studio — Blueprint registration and initialization.
+OpenVox Studio — Blueprint registration and initialization.
 """
 
 from flask import Blueprint

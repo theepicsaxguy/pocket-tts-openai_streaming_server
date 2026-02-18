@@ -1,4 +1,4 @@
-# PocketTTS Podcast Studio
+# OpenVox
 
 A self-hosted **developer podcast studio** powered by [Pocket-TTS](https://github.com/kyutai-labs/pocket-tts). Turn technical documentation, markdown files, and web pages into listenable podcast-like episodes — all running locally on CPU.
 
@@ -8,7 +8,7 @@ Tested and working fully with [WingmanAI by Shipbit](https://www.wingman-ai.com/
 
 ## Features
 
-**Podcast Studio (Web UI at `/`)**
+**OpenVox (Web UI at `/`)**
 - Import content from files (.md, .txt), URLs, or pasted text
 - Automatic text cleaning and normalization for TTS
 - Configurable chunking strategies (paragraph, sentence, heading, max chars)
@@ -41,7 +41,7 @@ cd pocket-tts-openai_streaming_server
 docker compose up -d
 ```
 
-Open `http://localhost:49112` — the Podcast Studio UI loads at `/`.
+Open `http://localhost:49112` — the OpenVox UI loads at `/`.
 
 Data (library database, uploaded sources, generated audio) persists in `./data/`.
 
@@ -95,7 +95,7 @@ response.stream_to_file("output.mp3")
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | Podcast Studio web UI |
+| `/` | GET | OpenVox web UI |
 | `/health` | GET | Health check |
 | `/v1/voices` | GET | List voices |
 | `/v1/audio/speech` | POST | Generate speech (OpenAI-compatible) |
@@ -241,6 +241,7 @@ POCKET_TTS_PORT=8080 docker compose up -d
 ## Credits
 
 - [Pocket-TTS](https://github.com/kyutai-labs/pocket-tts) by Kyutai Labs
+- [pocket-tts-openai_streaming_server](https://github.com/teddybear082/pocket-tts-openai_streaming_server) by teddybear082 (original fork this project builds upon)
 - Community voice contributors (see [voices/credits.txt](voices/credits.txt))
 
 ## License
