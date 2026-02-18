@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 package-lock.json
+pnpm-lock.yaml
 npm-debug.log*
 
 # Byte-compiled / optimized / DLL files
