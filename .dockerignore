@@ -30,6 +30,9 @@ build
 # Logs (we mount these as volume)
 logs/
 
+# Data directory (user data, mounted as volume)
+data/
+
 # Virtual environments
 venv/
 .venv/

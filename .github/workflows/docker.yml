@@ -4,12 +4,30 @@ name: Docker Build
 
 on:
   push:
+    branches:
+      - main
     tags:
       - '*'
+    paths:
+      - 'Dockerfile'
+      - 'docker-entrypoint.sh'
+      - 'requirements.txt'
+      - 'app/**'
+      - '.github/workflows/docker.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'Dockerfile'
+      - 'docker-entrypoint.sh'
+      - 'requirements.txt'
+      - 'app/**'
+      - '.github/workflows/docker.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
