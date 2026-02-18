@@ -29,16 +29,16 @@ function jsonOpts(method, body) {
 // ── Sources ─────────────────────────────────────────────────────────
 
 export function createSourceFromText(text, title, codeBlockRule) {
-    return request('/sources', jsonOpts('POST', { 
-        text, 
-        title, 
+    return request('/sources', jsonOpts('POST', {
+        text,
+        title,
         cleaning_settings: { code_block_rule: codeBlockRule }
     }));
 }
 
 export function createSourceFromUrl(url, codeBlockRule) {
-    return request('/sources', jsonOpts('POST', { 
-        url, 
+    return request('/sources', jsonOpts('POST', {
+        url,
         cleaning_settings: { code_block_rule: codeBlockRule }
     }));
 }

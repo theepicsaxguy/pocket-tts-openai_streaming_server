@@ -35,7 +35,7 @@ function initImportView() {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
+
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             const tabContent = document.getElementById(`tab-${btn.dataset.tab}`);
             if (tabContent) {
@@ -47,19 +47,19 @@ function initImportView() {
     // File dropzone
     const dropzone = document.getElementById('file-dropzone');
     const fileInput = document.getElementById('import-file');
-    
+
     if (dropzone && fileInput) {
         dropzone.addEventListener('click', () => fileInput.click());
-        
+
         dropzone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropzone.classList.add('dragover');
         });
-        
+
         dropzone.addEventListener('dragleave', () => {
             dropzone.classList.remove('dragover');
         });
-        
+
         dropzone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropzone.classList.remove('dragover');
@@ -77,7 +77,7 @@ function initImportView() {
             const parent = segment.closest('.segmented-control');
             parent.querySelectorAll('.segment').forEach(s => s.classList.remove('active'));
             segment.classList.add('active');
-            
+
             const input = parent.nextElementSibling;
             if (input && input.tagName === 'INPUT') {
                 input.value = segment.dataset.value;
@@ -109,7 +109,7 @@ function initImportView() {
             document.getElementById('preview-cleaned').textContent = result.cleaned_text;
             document.getElementById('raw-stats').textContent = `${text.length.toLocaleString()} chars`;
             document.getElementById('cleaned-stats').textContent = `${result.cleaned_text.length.toLocaleString()} chars`;
-            
+
             const preview = document.getElementById('clean-preview');
             preview.classList.remove('hidden');
             preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -244,7 +244,7 @@ function initReviewView() {
         const sourceId = state.get('currentSourceId');
         const btn = document.getElementById('btn-review-generate');
         const originalContent = btn.innerHTML;
-        
+
         // Loading state
         btn.disabled = true;
         btn.innerHTML = `
@@ -253,7 +253,7 @@ function initReviewView() {
             </svg>
             Generating...
         `;
-        
+
         const data = {
             source_id: sourceId,
             voice_id: document.getElementById('review-voice').value,
@@ -295,7 +295,7 @@ function renderChunkPreview(chunks, prefix = '') {
         `;
         container.appendChild(card);
     }
-    
+
     // Scroll to preview
     document.getElementById(`${prefix}-chunk-preview`).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -407,7 +407,7 @@ function renderEpisode(episode) {
     const duration = episode.total_duration_secs
         ? formatTime(episode.total_duration_secs)
         : '—';
-    
+
     // Show generation settings
     const settings = `Voice: ${episode.voice_id} · ${episode.output_format || 'wav'} · Breathing: ${episode.breathing_intensity || 'normal'}`;
     document.getElementById('episode-meta').textContent =
@@ -423,7 +423,7 @@ function renderEpisode(episode) {
     // Generation status detail
     const genStageEl = document.getElementById('gen-stage');
     const genChunkInfoEl = document.getElementById('gen-chunk-info');
-    
+
     if (episode.status === 'pending') {
         genStageEl.textContent = 'Waiting in queue...';
         genStageEl.className = 'gen-stage';
@@ -461,7 +461,7 @@ function renderEpisode(episode) {
         }
 
         const isLongText = chunk.text.length > 150;
-        
+
         card.innerHTML = `
             <div class="chunk-card-header">
                 <span class="chunk-num">${chunk.chunk_index + 1}</span>
@@ -542,55 +542,55 @@ function initEpisodeView() {
     // Regenerate with settings modal
     const regenModal = document.getElementById('regen-settings-modal');
     let currentRegenEpisodeId = null;
-    
+
     document.getElementById('btn-regenerate-settings').addEventListener('click', async () => {
         const id = state.get('currentEpisodeId');
         if (!id) return;
-        
+
         currentRegenEpisodeId = id;
-        
+
         // Populate voice select
         const voiceSelect = document.getElementById('regen-voice');
         voiceSelect.innerHTML = '<option value="">Same as before</option>';
-        
+
         const voices = state.get('voices') || await api.listVoices();
         state.set('voices', voices);
-        
+
         for (const v of voices) {
             const opt = document.createElement('option');
             opt.value = v.voice_id;
             opt.textContent = v.name || v.voice_id;
             voiceSelect.appendChild(opt);
         }
-        
+
         regenModal.classList.remove('hidden');
     });
-    
+
     document.getElementById('regen-settings-close').addEventListener('click', () => {
         regenModal.classList.add('hidden');
     });
-    
+
     document.getElementById('regen-settings-cancel').addEventListener('click', () => {
         regenModal.classList.add('hidden');
     });
-    
+
     document.getElementById('regen-settings-confirm').addEventListener('click', async () => {
         if (!currentRegenEpisodeId) return;
-        
+
         const voiceId = document.getElementById('regen-voice').value;
         const format = document.getElementById('regen-format').value;
         const strategy = document.getElementById('regen-strategy').value;
-        
+
         const settings = {};
         if (voiceId) settings.voice_id = voiceId;
         if (format) settings.format = format;
         if (strategy) settings.chunk_strategy = strategy;
-        
+
         try {
             const result = await api.regenerateWithSettings(currentRegenEpisodeId, settings);
-            
+
             regenModal.classList.add('hidden');
-            
+
             if (result.undo_id) {
                 showUndoToast(
                     'Episode queued for regeneration',
@@ -606,13 +606,13 @@ function initEpisodeView() {
                     120000  // 2 minutes
                 );
             }
-            
+
             loadEpisode(currentRegenEpisodeId);
         } catch (e) {
             toast(`Failed: ${e.message}`, 'error');
         }
     });
-    
+
     // Close modal on overlay click
     regenModal.addEventListener('click', (e) => {
         if (e.target === regenModal) {
@@ -690,7 +690,7 @@ function loadNowPlaying() {
     state.set('currentView', 'now-playing');
     showView('now-playing');
     refreshTree();
-    
+
     // Update queue if already playing
     if (state.get('playingEpisodeId')) {
         import('./player.js').then(player => {
