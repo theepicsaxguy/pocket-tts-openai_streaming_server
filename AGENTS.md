@@ -1,6 +1,18 @@
 # Project Overview
 
-A self-hosted "Podcast Studio" built on top of PocketTTS OpenAI-compatible server. This tool turns technical documentation into listenable podcast episodes with a complete library management system.
+A self-hosted **TTS server** with an OpenAI-compatible API and a Studio UI for consuming documentation. Turn technical documentation, markdown files, and web pages into listenable audio — runs locally on CPU.
+
+**Not a podcast creation tool** — this is a **Spotify for docs**. Billion-dollar UX. Mobile-first. Spotify should look like a cheap copy.
+
+## UX Vision
+
+This is NOT a developer tool. It's a consumer product that happens to be self-hosted.
+
+- **Spotify-level polish**: Every interaction feels premium, smooth, intentional
+- **Mobile-first**: Design for phone first, then scale up to desktop
+- **No sidebars on mobile**: Bottom tab navigation only (like Spotify, Apple Music)
+- **Billion-dollar aesthetic**: Bold, distinctive, unforgettable. Not generic "AI slop"
+- **Instantly addictive**: The UX is so good users can't stop using it
 
 ## Architecture
 
@@ -34,7 +46,7 @@ server.py                    # Entry point, CLI, starts Waitress
 | `app/studio/routes.py` | Studio API: sources, episodes, library, playback |
 | `app/studio/db.py` | SQLite schema and connection management |
 | `app/studio/generation.py` | Background audio generation queue |
-| `templates/studio.html` | Three-pane Studio UI |
+| `templates/studio.html` | Mobile-first Studio UI shell |
 | `static/js/studio/` | Frontend JavaScript modules |
 | `static/css/studio.css` | Dark mode UI styles |
 
@@ -86,10 +98,10 @@ server.py                    # Entry point, CLI, starts Waitress
 
 ## Workflow
 
-1. **Import** (`#import`) - Upload file, paste URL, or enter text
-2. **Review** (`#review/{id}`) - View cleaned text, configure voice/chunk settings, generate
-3. **Episode** (`#episode/{id}`) - Track generation progress, play audio, download
-4. **Library** (left panel) - Organize sources/episodes in folders
+1. **Import** (`#import`) - Full-screen import: file upload, paste URL, or text
+2. **Review** (`#source/{id}`) - View cleaned text, configure voice/chunk settings, generate
+3. **Episode** (`#episode/{id}`) - Full-screen player, track generation progress, download
+4. **Library** (`#library`) - Organize sources/episodes in folders, swipe to browse
 
 ## Development
 
@@ -148,28 +160,54 @@ data/
 
 ## Frontend Architecture
 
-Three-pane layout:
-- **Left**: Library tree (folders, sources, episodes)
-- **Center**: Dynamic content (import, review, episode views)
-- **Right**: Settings panel
-- **Bottom**: Audio player bar
+### Mobile (Primary - No Sidebars!)
+- **Bottom tab navigation** (like Spotify, Apple Music): Home, Library, Search, Settings
+- **Full-screen views**: No sidebars, no panels
+- **Swipe gestures**: Navigate between screens
+- **Mini player**: Collapsed at bottom when playing, tap to expand
+- **Bottom sheets**: All actions in bottom sheets, not modals
 
-Hash routing:
-- `#import` - Import new content
-- `#review/{source_id}` - Review and generate episode
-- `#episode/{episode_id}` - View episode, play audio
-- `#source/{source_id}` - View source details
+### Desktop (Secondary)
+- Can show sidebar for library tree
+- But maintain mobile UX feel - don't just stretch the mobile layout
+- Three-pane optional, not default
+
+### Screens (Hash Routes)
+- `#home` - Home feed (recent, continue listening, recommended)
+- `#library` - User's content organized
+- `#search` - Search sources/episodes
+- `#settings` - Settings panel
+- `#import` - Import new content (full screen)
+- `#source/{id}` - Source details
+- `#episode/{id}` - Episode player (full screen)
 
 JavaScript modules:
-- `main.js` - Entry point, routing, utilities
-- `editor.js` - Import, review, episode views
-- `library.js` - Tree rendering, drag/drop, context menus
-- `player.js` - Audio player, playback state
-- `settings.js` - Settings persistence, voice loading
+- `main.js` - Entry point, routing, bottom tab nav
+- `home.js` - Home feed
+- `library.js` - Library view, folder tree
+- `search.js` - Search functionality
+- `player.js` - Fullscreen player, mini player
+- `editor.js` - Import, source, episode views
+- `settings.js` - Settings panel
 - `api.js` - API client
-- `state.js` - Simple pub/sub state management
+- `state.js` - Pub/sub state management
 
 ## Design Principles
+
+### UX Philosophy
+- **Think Spotify, but better**: Every pixel matters. Smooth transitions. Intuitive gestures. No friction.
+- **Mobile-first, always**: If it doesn't work on mobile, it's not done
+- **No compromises**: Generic is dead. Make it memorable.
+- **Delight in details**: Micro-animations, haptic feedback, unexpected touches
+
+### Frontend Aesthetics (when building UI)
+- **Typography**: Choose fonts that are beautiful, unique, interesting. Avoid generic fonts (Inter, Roboto, Arial). Pair a distinctive display font with a refined body font.
+- **Color & Theme**: Commit to a cohesive aesthetic. Use CSS variables. Dominant colors with sharp accents beat timid, evenly-distributed palettes.
+- **Motion**: Animations for effects and micro-interactions. Staggered reveals on page load. Scroll-triggering. Hover states that surprise.
+- **Spatial Composition**: Unexpected layouts. Asymmetry. Overlap. Diagonal flow. Grid-breaking. Generous negative space OR controlled density.
+- **Backgrounds**: Create atmosphere and depth. Gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows. NOT solid flat colors.
+
+NEVER use: generic AI slop aesthetics, overused fonts, cliched purple gradients, predictable layouts, cookie-cutter design.
 
 ### SOLID Principles (Python)
 
