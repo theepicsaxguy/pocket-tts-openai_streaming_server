@@ -498,10 +498,10 @@ async function loadSource(sourceId) {
 
 function initSourceView() {
     // Edit text functionality for source view
-    const editBtn = document.getElementById('btn-edit-text');
-    const textPreview = document.getElementById('source-cleaned-text');
-    const textArea = document.getElementById('source-cleaned-textarea');
-    const editActions = document.getElementById('source-edit-actions');
+    const _editBtn = document.getElementById('btn-edit-text');
+    const _textPreview = document.getElementById('source-cleaned-text');
+    const _textArea = document.getElementById('source-cleaned-textarea');
+    const _editActions = document.getElementById('source-edit-actions');
 
     // For source view, we need a different approach - let's add a button dynamically
     // Actually let's add it in the HTML template and show it here
