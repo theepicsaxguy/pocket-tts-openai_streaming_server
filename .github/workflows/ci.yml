@@ -99,25 +99,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Install Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
-
-      - name: Install Playwright
-        run: npm install -D @playwright/test
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
@@ -125,7 +106,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull and run container
+      - name: Pull and run app container
         run: |
           docker pull ${{ needs.docker.outputs.image_tag }}
           docker run -d \
@@ -149,8 +130,14 @@ jobs:
           docker logs pocket-tts
           exit 1
 
-      - name: Run Playwright tests
-        run: npx playwright test
+      - name: Run Playwright tests in container
+        run: |
+          docker run --rm \
+            --network host \
+            -v $(pwd):/work \
+            -w /work \
+            mcr.microsoft.com/playwright:v1.50.0-noble \
+            /bin/bash -c "npm install -D @playwright/test && npx playwright test"
         env:
           CI: true
 
