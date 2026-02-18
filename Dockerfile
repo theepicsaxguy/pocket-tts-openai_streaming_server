@@ -22,11 +22,24 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Production image
 FROM python:3.14-slim
 
-# Install runtime dependencies for audio processing
+# Install Node.js 25.6.1 (for git repository ingestion via npx codefetch)
+ENV NODE_VERSION=25.6.1
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    xz-utils \
     libsndfile1 \
     ffmpeg \
     gosu \
+    && ARCH=$(dpkg --print-architecture) \
+    && curl -fsSLO --compressed "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${ARCH}.tar.xz" \
+    && curl -fsSLO --compressed "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" \
+    && grep " node-v${NODE_VERSION}-linux-${ARCH}.tar.xz$" SHASUMS256.txt | sha256sum -c - \
+    && tar -xJf "node-v${NODE_VERSION}-linux-${ARCH}.tar.xz" -C /usr/local --strip-components=1 --no-same-owner \
+    && rm "node-v${NODE_VERSION}-linux-${ARCH}.tar.xz" SHASUMS256.txt \
+    && apt-get purge -y curl xz-utils \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
