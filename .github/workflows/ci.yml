@@ -106,12 +106,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Normalize repository name
+        id: repo
+        run: echo "name=$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Determine image tag to use
         id: image
         run: |
           # For PRs, use pr-XXX or sha-XXX tag (always pushed); for push, use version tag
+          REPO="${{ steps.repo.outputs.name }}"
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "tag=ghcr.io/${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "tag=ghcr.io/${REPO}:pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
             echo "Using PR tag: pr-${{ github.event.pull_request.number }}"
           else
             echo "tag=${{ needs.docker.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
