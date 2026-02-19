@@ -485,7 +485,6 @@ export function updateNowPlayingView() {
 
 export function updateTimeDisplays() {
     const audio = playerState.getAudio();
-    const chunks = playerState.getChunks();
     const currentChunkIndex = playerState.getCurrentChunkIndex();
     const totalDuration = playerState.getTotalDuration();
 
