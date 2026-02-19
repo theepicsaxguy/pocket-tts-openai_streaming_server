@@ -3,7 +3,7 @@
  */
 
 import { client as api } from './api.ts';
-import { $, formatTime } from './utils.js';
+import { $, triggerHaptic } from './utils.js';
 import { toast } from './main.js';
 import * as playerState from './player-state.js';
 
@@ -135,13 +135,14 @@ function initKeyboardShortcuts() {
         case '6':
         case '7':
         case '8':
-        case '9':
+        case '9': {
             const audio = playerState.getAudio();
             if (audio && audio.duration) {
                 const percent = parseInt(e.key) * 10;
                 audio.currentTime = (percent / 100) * audio.duration;
             }
             break;
+        }
         }
     });
 }
@@ -213,8 +214,8 @@ export function toggleMute(btnElement = null) {
     const audio = playerState.getAudio();
     if (!audio) return;
 
-    let isMuted = playerState.getIsMuted();
-    let previousVolume = playerState.getPreviousVolume();
+    const isMuted = playerState.getIsMuted();
+    const previousVolume = playerState.getPreviousVolume();
 
     if (isMuted) {
         audio.volume = previousVolume;
@@ -297,18 +298,6 @@ function savePosition(forcePct) {
 function startPeriodicSave() {
     clearInterval(saveTimer);
     saveTimer = setInterval(() => savePosition(), 30000);
-}
-
-function triggerHaptic(type = 'light') {
-    if (!('vibrate' in navigator)) return;
-    const patterns = {
-        light: 10,
-        medium: 25,
-        heavy: 50,
-        success: [10, 50, 10],
-        error: [50, 50, 50],
-    };
-    navigator.vibrate(patterns[type] || patterns.light);
 }
 
 export function setPlaybackSpeed(speed) {

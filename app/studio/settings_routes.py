@@ -2,7 +2,7 @@
 Studio API routes — Settings endpoints.
 """
 
-from flask import jsonify, request, Response
+from flask import Response, jsonify, request
 
 from app.logging_config import get_logger
 from app.studio.db import get_db

@@ -3,9 +3,13 @@ Flask routes for the OpenAI-compatible TTS API.
 """
 
 import time
+
+from apispec import APISpec
+from apispec.ext.marshmallow import MarshmallowPlugin
 from flask import (
     Blueprint,
     Response,
+    current_app,
     jsonify,
     render_template,
     request,
@@ -13,8 +17,6 @@ from flask import (
     stream_with_context,
 )
 
-from apispec import APISpec
-from apispec.ext.marshmallow import MarshmallowPlugin
 from app.logging_config import get_logger
 from app.services.audio import (
     convert_audio,
@@ -143,8 +145,6 @@ def generate_speech():
     Returns:
         Audio file or streaming audio response
     """
-    from flask import current_app
-
     data = request.json
 
     if not data:

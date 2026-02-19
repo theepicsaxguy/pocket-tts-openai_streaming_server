@@ -10,7 +10,7 @@ from app.logging_config import get_logger
 
 logger = get_logger('studio.ingestion')
 
-MAX_FILE_SIZE = 512 * 1024  # 500KB
+MAX_FILE_SIZE = Config.MAX_FILE_SIZE
 ALLOWED_EXTENSIONS = {'.md', '.txt'}
 
 
@@ -112,7 +112,7 @@ def ingest_url(url: str, use_jina: bool = True, jina_fallback: bool = True) -> d
     }
 
 
-def _fetch_with_jina(url: str) -> str | None:
+def _fetch_with_jina(url: str) -> str | None:  # type: ignore[return]
     """Fetch content using r.jina.ai/http://URL service."""
     import requests
 
@@ -160,7 +160,7 @@ def _fetch_with_jina_with_title(url: str) -> tuple[str | None, str | None]:
     return content, None
 
 
-def _fetch_with_trafilatura(url: str) -> tuple[str | None, str | None]:
+def _fetch_with_trafilatura(url: str) -> tuple[str | None, str | None]:  # type: ignore[return]
     """Fetch content using trafilatura or direct request. Returns (content, page_title)."""
     import requests
 

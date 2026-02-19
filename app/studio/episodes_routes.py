@@ -7,13 +7,13 @@ import shutil
 import uuid
 from typing import Any
 
-from flask import jsonify, request, send_file, Response
+from flask import Response, jsonify, request, send_file
 
 from app.config import Config
 from app.logging_config import get_logger
 from app.services.tts import get_tts_service
 from app.studio.audio_assembly import merge_chunks_to_episode
-from app.studio.chunking import chunk_text
+from app.studio.chunking import DEFAULT_MAX_CHARS, chunk_text
 from app.studio.db import get_db
 from app.studio.generation import get_generation_queue
 from app.studio.repositories import (
@@ -47,7 +47,7 @@ def register_routes(bp) -> None:
         voice_id = data.get('voice_id', 'alba')
         output_format = data.get('output_format', 'wav')
         chunk_strategy = data.get('chunk_strategy', 'paragraph')
-        chunk_max_length = data.get('chunk_max_length', 2000)
+        chunk_max_length = data.get('chunk_max_length', DEFAULT_MAX_CHARS)
         code_block_rule = data.get('code_block_rule', 'skip')
         breathing_intensity = data.get('breathing_intensity', 'normal')
         title = data.get('title', source['title'])

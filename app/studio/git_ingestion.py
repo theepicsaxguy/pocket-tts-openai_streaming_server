@@ -12,7 +12,7 @@ from app.logging_config import get_logger
 
 logger = get_logger('studio.git_ingestion')
 
-MAX_REPO_CHARS = 512 * 1024
+MAX_REPO_CHARS = Config.MAX_FILE_SIZE
 ALLOWED_EXTENSIONS = {'.md', '.txt', '.markdown', '.mdx'}
 
 

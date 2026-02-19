@@ -38,6 +38,36 @@ class CleaningOptions:
         self.list_item_spacing = list_item_spacing
 
 
+def create_cleaning_options_from_request(data: dict) -> CleaningOptions:
+    """Create CleaningOptions from request JSON data.
+
+    Supports both direct field names (e.g., 'remove_non_text') and
+    settings-prefixed names (e.g., 'clean_remove_non_text').
+
+    Args:
+        data: Request JSON dict with cleaning options
+
+    Returns:
+        CleaningOptions instance with values from data
+    """
+    return CleaningOptions(
+        remove_non_text=data.get('remove_non_text', data.get('clean_remove_non_text', False)),
+        handle_tables=data.get('handle_tables', data.get('clean_handle_tables', True)),
+        speak_urls=data.get('speak_urls', data.get('clean_speak_urls', True)),
+        expand_abbreviations=data.get(
+            'expand_abbreviations', data.get('clean_expand_abbreviations', True)
+        ),
+        code_block_rule=data.get('code_block_rule', 'skip'),
+        preserve_parentheses=data.get(
+            'preserve_parentheses', data.get('clean_preserve_parentheses', True)
+        ),
+        preserve_structure=data.get('preserve_structure', True),
+        paragraph_spacing=data.get('paragraph_spacing', 2),
+        section_spacing=data.get('section_spacing', 3),
+        list_item_spacing=data.get('list_item_spacing', 1),
+    )
+
+
 # Common abbreviations to expand
 ABBREVIATIONS = {
     'dr.': 'doctor',

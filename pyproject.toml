@@ -4,7 +4,7 @@ license = {text = "MIT"}
 name = "pocket-tts-openai-server"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "0.0.1"
+version = "0.0.4"
 
 dependencies = [
   "flask>=3.0.0",
@@ -15,6 +15,9 @@ dependencies = [
   "soundfile>=0.12.0",
   "trafilatura>=1.12.0",
   "markdown-it-py>=3.0.0",
+  "apispec>=6.0.0",
+  "marshmallow>=3.20.0",
+  "pyyaml>=6.0.0",
   { name = "torch", version = ">=2.0.0", source = { index = "pytorch-cpu" } },
   { name = "torchaudio", version = ">=2.0.0", source = { index = "pytorch-cpu" } },
 ]

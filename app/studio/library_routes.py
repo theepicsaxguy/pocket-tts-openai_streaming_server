@@ -4,15 +4,15 @@ Studio API routes — Library, generation status, and preview endpoints.
 
 from typing import Any
 
-from flask import jsonify, request, Response
+from flask import Response, jsonify, request
 
 from app.logging_config import get_logger
-from app.studio.chunking import chunk_text
+from app.studio.chunking import DEFAULT_MAX_CHARS, chunk_text
 from app.studio.db import get_db
 from app.studio.generation import get_generation_queue
 from app.studio.git_ingestion import preview_git_repository
 from app.studio.ingestion import ingest_url
-from app.studio.normalizer import CleaningOptions, normalize_text
+from app.studio.normalizer import create_cleaning_options_from_request, normalize_text
 
 logger = get_logger('studio.routes.library')
 
@@ -88,18 +88,7 @@ def register_routes(bp) -> None:
         if not data or not data.get('text'):
             return jsonify({'error': 'Provide text'}), 400
 
-        options = CleaningOptions(
-            remove_non_text=data.get('remove_non_text', False),
-            handle_tables=data.get('handle_tables', True),
-            speak_urls=data.get('speak_urls', True),
-            expand_abbreviations=data.get('expand_abbreviations', True),
-            code_block_rule=data.get('code_block_rule', 'skip'),
-            preserve_parentheses=data.get('preserve_parentheses', True),
-            preserve_structure=data.get('preserve_structure', True),
-            paragraph_spacing=data.get('paragraph_spacing', 2),
-            section_spacing=data.get('section_spacing', 3),
-            list_item_spacing=data.get('list_item_spacing', 1),
-        )
+        options = create_cleaning_options_from_request(data)
 
         cleaned = normalize_text(data['text'], options)
         return jsonify({'cleaned_text': cleaned})
@@ -115,18 +104,7 @@ def register_routes(bp) -> None:
         db = get_db()
         settings = _get_cleaning_settings(db)
 
-        options = CleaningOptions(
-            remove_non_text=settings.get('clean_remove_non_text', False),
-            handle_tables=settings.get('clean_handle_tables', True),
-            speak_urls=settings.get('clean_speak_urls', True),
-            expand_abbreviations=settings.get('clean_expand_abbreviations', True),
-            code_block_rule=settings.get('code_block_rule', 'skip'),
-            preserve_parentheses=settings.get('clean_preserve_parentheses', True),
-            preserve_structure=settings.get('preserve_structure', True),
-            paragraph_spacing=settings.get('paragraph_spacing', 2),
-            section_spacing=settings.get('section_spacing', 3),
-            list_item_spacing=settings.get('list_item_spacing', 1),
-        )
+        options = create_cleaning_options_from_request(settings)
 
         try:
             if content_type == 'url':
@@ -187,7 +165,7 @@ def register_routes(bp) -> None:
         chunks = chunk_text(
             data['text'],
             strategy=data.get('strategy', 'paragraph'),
-            max_chars=data.get('max_chars', 2000),
+            max_chars=data.get('max_chars', DEFAULT_MAX_CHARS),
         )
         return jsonify({'chunks': chunks, 'count': len(chunks)})
 

@@ -305,29 +305,29 @@ async function loadReview(sourceId) {
         // Set up cover upload
         const coverInput = document.getElementById('review-cover-input');
         const uploadCoverBtn = document.getElementById('btn-upload-cover');
-        
+
         uploadCoverBtn.onclick = () => coverInput.click();
         coverInput.onchange = async () => {
             const file = coverInput.files[0];
             if (!file) return;
-            
+
             const formData = new FormData();
             formData.append('cover', file);
-            
+
             try {
                 const res = await fetch(`/api/studio/sources/${sourceId}/cover`, {
                     method: 'POST',
                     body: formData
                 });
                 if (!res.ok) throw new Error('Upload failed');
-                
+
                 coverImage.src = `/api/studio/sources/${sourceId}/cover?t=${Date.now()}`;
                 coverImage.onload = () => {
                     coverImage.classList.remove('hidden');
                     coverPlaceholder.classList.add('hidden');
                 };
                 toast('Cover uploaded', 'success');
-            } catch (e) {
+            } catch (_e) {
                 toast('Failed to upload cover', 'error');
             }
         };
@@ -809,7 +809,7 @@ function renderEpisode(episode) {
         const actionsDiv = createElement('div', { className: 'chunk-actions' });
         if (chunk.status === 'ready') {
             const playBtn = createElement('button', { className: 'chunk-btn play-chunk', title: 'Play', data_index: chunk.chunk_index });
-            playBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+            playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
             playBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 playerLoadEpisode(episode.id, chunk.chunk_index);
@@ -818,7 +818,7 @@ function renderEpisode(episode) {
         }
         if (chunk.status === 'error' || chunk.status === 'ready') {
             const regenBtn = createElement('button', { className: 'chunk-btn regen-chunk', title: 'Regenerate', data_index: chunk.chunk_index });
-            regenBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
+            regenBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
             regenBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 await api.postApiStudioEpisodesEpisodeIdChunksChunkIndexRegenerate(episode.id, chunk.chunk_index);
@@ -1043,7 +1043,7 @@ async function initLibraryView() {
             clearContent(container);
             for (const ep of episodes) {
                 const card = createElement('div', { className: 'library-card', data_episode_id: ep.id, data_chunk_index: 0 });
-                card.innerHTML = `<div class="library-card-artwork"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>`;
+                card.innerHTML = '<div class="library-card-artwork"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>';
                 const info = createElement('div', { className: 'library-card-info' }, [
                     createElement('h4', {}, [escapeHtml(ep.title)]),
                     createElement('p', {}, [`${ep.chunk_count || 0} chunks`])
@@ -1068,7 +1068,7 @@ async function initLibraryView() {
             clearContent(sourcesContainer);
             for (const src of sources) {
                 const card = createElement('div', { className: 'library-card', data_source_id: src.id });
-                card.innerHTML = `<div class="library-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>`;
+                card.innerHTML = '<div class="library-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>';
                 const info = createElement('div', { className: 'library-card-info' }, [
                     createElement('h4', {}, [escapeHtml(src.title)]),
                     createElement('p', {}, [src.source_type])

@@ -115,7 +115,13 @@ function showSwipeActions(item, type, id) {
             {
                 label: 'Move to Folder',
                 icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>',
-                action: () => { /* TODO: Show folder picker */ }
+                action: () => { /* TODO: Feature - Folder Picker Modal for moving episode to different folder
+                 * Context: This is triggered from the "Move to Folder" option in the swipe actions menu.
+                 * Requirement: Create a new UI component - a modal that displays the folder tree and allows
+                 * selecting a destination folder. Should include: folder tree visualization, search/filter,
+                 * create new folder option, and confirm/cancel actions.
+                 * Date: 2026-02-19
+                 * Related: Similar TODO at line 693 for bulk move operation */ }
             },
             {
                 label: 'Rename',
@@ -690,7 +696,20 @@ async function doBulkMove() {
     }
 
     // For now, just move to first folder
-    // TODO: Show folder picker modal
+    // TODO: Feature - Folder Picker Modal for bulk move operation
+    // Context: This is part of the bulk selection feature (doBulkMove function). When users select
+    // multiple episodes and click "Move", they should see a folder picker modal instead of the
+    // current workaround that moves items to the first available folder.
+    // Requirement: Implement a modal component that displays the folder hierarchy with:
+    //   - Visual folder tree with expand/collapse
+    //   - Current folder highlighted
+    //   - "New Folder" button for creating destination on-the-fly
+    //   - Search/filter to quickly find folders
+    //   - Multi-select prevention (only one destination allowed)
+    // Dependencies: This requires the same folder picker component needed at line 118.
+    // Implementation: Consider creating a reusable FolderPickerModal class that can be
+    // instantiated for both single-item moves and bulk operations.
+    // Date: 2026-02-19
     try {
         await api.postApiStudioEpisodesBulkMove({ episode_ids: episodeIds, folder_id: folders[0].id });
         toast(`Moved ${episodeIds.length} episode(s)`, 'success');

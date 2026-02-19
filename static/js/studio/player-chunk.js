@@ -6,9 +6,7 @@ import { client as api } from './api.ts';
 import * as state from './state.js';
 import * as playerState from './player-state.js';
 import { toast } from './main.js';
-
-let sleepTimerId = null;
-let sleepTimerRemaining = 0;
+import { triggerHaptic } from './utils.js';
 
 export async function loadEpisode(episodeId, startChunk = null) {
     try {
@@ -49,8 +47,8 @@ export async function loadEpisode(episodeId, startChunk = null) {
         state.set('playingEpisodeId', episode.id);
         state.set('playingChunkIndex', currentChunkIndex);
 
-        const { showPlayer, updateCoverArt, updateNowPlayingView, updatePlayerUI } = window.playerRender || {};
-        if (showPlayer) showPlayer();
+        const { showPlayer: _showPlayer, updateCoverArt, updateNowPlayingView, updatePlayerUI: _updatePlayerUI } = window.playerRender || {};
+        if (_showPlayer) _showPlayer();
 
         const titleEl = document.getElementById('player-title');
         if (titleEl) titleEl.textContent = episode.title;
@@ -65,7 +63,7 @@ export async function loadEpisode(episodeId, startChunk = null) {
         } catch {}
 
         if (startChunk === null && episode.position_secs) {
-            const chunkDuration = chunks.find(c => c.chunk_index === currentChunkIndex)?.duration_secs || 0;
+            const _chunkDuration = chunks.find(c => c.chunk_index === currentChunkIndex)?.duration_secs || 0;
             audio.currentTime = episode.position_secs;
         }
 
@@ -189,7 +187,7 @@ function onTimeUpdate() {
 
     const chunks = playerState.getChunks();
     const currentChunkIndex = playerState.getCurrentChunkIndex();
-    const currentChunkDuration = chunks.find(c => c.chunk_index === currentChunkIndex)?.duration_secs || 0;
+    const _currentChunkDuration = chunks.find(c => c.chunk_index === currentChunkIndex)?.duration_secs || 0;
     const chunkStartTime = playerState.calculateEpisodeTime(currentChunkIndex);
     playerState.setCurrentTime(chunkStartTime + audio.currentTime);
 
@@ -260,16 +258,4 @@ function addToHistory(episode) {
 
 export function getPlaybackHistory() {
     return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-}
-
-function triggerHaptic(type = 'light') {
-    if (!('vibrate' in navigator)) return;
-    const patterns = {
-        light: 10,
-        medium: 25,
-        heavy: 50,
-        success: [10, 50, 10],
-        error: [50, 50, 50],
-    };
-    navigator.vibrate(patterns[type] || patterns.light);
 }

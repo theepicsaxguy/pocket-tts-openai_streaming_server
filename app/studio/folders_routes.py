@@ -7,12 +7,12 @@ import shutil
 import uuid
 from typing import Any
 
-from flask import jsonify, request, Response
+from flask import Response, jsonify, request
 
 from app.config import Config
 from app.logging_config import get_logger
 from app.studio.db import get_db
-from app.studio.repositories import ChunkRepository, EpisodeRepository, FolderRepository
+from app.studio.repositories import ChunkRepository, EpisodeRepository
 
 logger = get_logger('studio.routes.folders')
 

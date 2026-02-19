@@ -3,9 +3,8 @@
  */
 
 import { client as api } from './api.ts';
-import * as state from './state.js';
 import { toast } from './main.js';
-import { $, formatTime } from './utils.js';
+import { $, formatTime, triggerHaptic } from './utils.js';
 import * as playerState from './player-state.js';
 
 export function initFullscreenPlayer() {
@@ -209,7 +208,7 @@ export function updateFullscreenUI() {
     const chunks = playerState.getChunks();
     const currentChunkIndex = playerState.getCurrentChunkIndex();
     const chunk = chunks.find(c => c.chunk_index === currentChunkIndex);
-    const idx = chunks.findIndex(c => c.chunk_index === currentChunkIndex);
+    const _idx = chunks.findIndex(c => c.chunk_index === currentChunkIndex);
 
     $('fs-track-title').textContent = episode.title;
     const episodeInfoEl = document.getElementById('fs-episode-info');
@@ -422,11 +421,11 @@ export function updateTimeDisplays() {
     const chunks = playerState.getChunks();
     const currentChunkIndex = playerState.getCurrentChunkIndex();
     const totalDuration = playerState.getTotalDuration();
-    const currentTime = playerState.getCurrentTime();
+    const _currentTime = playerState.getCurrentTime();
 
     if (!audio || !audio.duration) return;
 
-    const currentChunkDuration = chunks.find(c => c.chunk_index === currentChunkIndex)?.duration_secs || 0;
+    const _currentChunkDuration = chunks.find(c => c.chunk_index === currentChunkIndex)?.duration_secs || 0;
     const chunkStartTime = playerState.calculateEpisodeTime(currentChunkIndex);
     playerState.setCurrentTime(chunkStartTime + audio.currentTime);
 
@@ -551,7 +550,7 @@ async function showEpisodeListSheet() {
                 content.appendChild(item);
             });
         }
-    } catch (e) {
+    } catch (_e) {
         content.innerHTML = '<p style="color: var(--text-muted); padding: 20px; text-align: center;">Failed to load episodes</p>';
     }
 
@@ -648,16 +647,4 @@ function updateSleepTimerUI() {
             timerEl.classList.remove('active');
         }
     }
-}
-
-function triggerHaptic(type = 'light') {
-    if (!('vibrate' in navigator)) return;
-    const patterns = {
-        light: 10,
-        medium: 25,
-        heavy: 50,
-        success: [10, 50, 10],
-        error: [50, 50, 50],
-    };
-    navigator.vibrate(patterns[type] || patterns.light);
 }
