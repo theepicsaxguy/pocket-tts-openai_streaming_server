@@ -37,6 +37,9 @@ export default [
                 CanvasRenderingContext2D: 'readonly',
                 HTMLCanvasElement: 'readonly',
                 SVGElement: 'readonly',
+                navigator: 'readonly',
+                MediaMetadata: 'readonly',
+                Node: 'readonly',
             },
         },
         rules: {

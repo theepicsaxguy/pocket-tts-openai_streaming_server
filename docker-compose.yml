@@ -13,7 +13,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: openvox:0.0.1
+    # Image tag is set during build, not hardcoded
     container_name: openvox-server
 
     # Run as non-root user by default (can be overridden in K8s with runAsUser)

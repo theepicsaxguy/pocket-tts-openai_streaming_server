@@ -1,7 +1,7 @@
 /**
  * Audio player — chunk-based playback with auto-advance and waveform visualization.
  * Premium Edition
- * 
+ *
  * This is a thin coordinator that imports from specialized modules:
  * - player-state.js: Core state management
  * - player-controls.js: UI controls and event handlers
@@ -11,18 +11,14 @@
  * - player-chunk.js: Chunk loading and playback
  */
 
-/* global navigator */
-
-import * as api from './api.js';
-import * as state from './state.js';
 import { toast } from './main.js';
-import { $, formatTime } from './utils.js';
-
+import * as state from './state.js';
+import { triggerHaptic } from './utils.js';
 import * as playerState from './player-state.js';
-import * as playerControls from './player-controls.js';
-import * as playerQueue from './player-queue.js';
-import * as playerWaveform from './player-waveform.js';
 import * as playerRender from './player-render.js';
+import * as playerQueue from './player-queue.js';
+import * as playerControls from './player-controls.js';
+import * as playerWaveform from './player-waveform.js';
 import * as playerChunk from './player-chunk.js';
 
 window.playerState = playerState;
@@ -100,18 +96,6 @@ function initSwipeGestures() {
     }
 }
 
-function triggerHaptic(type = 'light') {
-    if (!('vibrate' in navigator)) return;
-    const patterns = {
-        light: 10,
-        medium: 25,
-        heavy: 50,
-        success: [10, 50, 10],
-        error: [50, 50, 50],
-    };
-    navigator.vibrate(patterns[type] || patterns.light);
-}
-
 function shareEpisode() {
     const episode = playerState.getCurrentEpisode();
     if (!episode) return;
@@ -182,7 +166,7 @@ export function init() {
             playerQueue.showQueue();
             break;
         case 'f':
-        case 'F':
+        case 'F': {
             const isFullscreen = playerState.getIsFullscreen ? playerState.getIsFullscreen() : false;
             if (!isFullscreen) {
                 playerRender.openFullscreenPlayer();
@@ -190,6 +174,7 @@ export function init() {
                 playerRender.closeFullscreenPlayer();
             }
             break;
+        }
         case 's':
         case 'S':
             if (e.shiftKey) {

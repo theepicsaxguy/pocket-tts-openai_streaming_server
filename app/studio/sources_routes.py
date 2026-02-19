@@ -7,14 +7,24 @@ import shutil
 import uuid
 from typing import Any
 
-from flask import jsonify, request, send_from_directory, Response
+from flask import Response, jsonify, request, send_from_directory
 
 from app.config import Config
 from app.logging_config import get_logger
 from app.studio.db import get_db
+from app.studio.git_ingestion import ingest_git_repository
 from app.studio.ingestion import ingest_file, ingest_paste, ingest_url
-from app.studio.normalizer import CleaningOptions, normalize_text
-from app.studio.repositories import EpisodeRepository, SourceRepository, SettingsRepository
+from app.studio.normalizer import create_cleaning_options_from_request, normalize_text
+from app.studio.repositories import EpisodeRepository, SettingsRepository, SourceRepository
+from app.studio.schemas import (
+    CreateSourceFileBody,
+    CreateSourceJsonBody,
+    MoveToFolderBody,
+    ReCleanSourceBody,
+    SourceCoverUploadBody,
+    UpdateSourceBody,
+    request_body,
+)
 
 logger = get_logger('studio.routes.sources')
 
@@ -23,9 +33,10 @@ def register_routes(bp) -> None:
     """Register source routes on the blueprint."""
 
     @bp.route('/sources', methods=['POST'])
+    @request_body(CreateSourceFileBody, 'multipart/form-data')
+    @request_body(CreateSourceJsonBody)
     def create_source() -> Response | tuple[Response, int]:
         """Upload file, submit URL, paste text, or import git repository."""
-        from app.studio.git_ingestion import ingest_git_repository
 
         db = get_db()
 
@@ -39,8 +50,6 @@ def register_routes(bp) -> None:
                 else:
                     return jsonify({'error': 'No file selected'}), 400
             elif request.is_json and request.json.get('git_url'):
-                from app.studio.git_ingestion import ingest_git_repository
-
                 url = request.json['git_url']
                 subpath = request.json.get('git_subpath')
                 data = ingest_git_repository(url, subpath)
@@ -65,18 +74,7 @@ def register_routes(bp) -> None:
             else:
                 return jsonify({'error': 'Provide a file, git_url, url, or text'}), 400
 
-            options = CleaningOptions(
-                remove_non_text=settings.get('clean_remove_non_text', False),
-                handle_tables=settings.get('clean_handle_tables', True),
-                speak_urls=settings.get('clean_speak_urls', True),
-                expand_abbreviations=settings.get('clean_expand_abbreviations', True),
-                code_block_rule=settings.get('code_block_rule', 'skip'),
-                preserve_parentheses=settings.get('clean_preserve_parentheses', True),
-                preserve_structure=settings.get('preserve_structure', True),
-                paragraph_spacing=settings.get('paragraph_spacing', 2),
-                section_spacing=settings.get('section_spacing', 3),
-                list_item_spacing=settings.get('list_item_spacing', 1),
-            )
+            options = create_cleaning_options_from_request(settings)
 
             cleaned = normalize_text(data['raw_text'], options)
             source_id = str(uuid.uuid4())
@@ -144,6 +142,7 @@ def register_routes(bp) -> None:
         return jsonify({'cover_art': cover_art})
 
     @bp.route('/sources/<source_id>/cover', methods=['POST'])
+    @request_body(SourceCoverUploadBody, 'multipart/form-data')
     def upload_source_cover(source_id: str) -> Response | tuple[Response, int]:
         """Upload cover art for a source."""
         if 'cover' not in request.files:
@@ -171,6 +170,7 @@ def register_routes(bp) -> None:
         return jsonify({'ok': True, 'cover_url': f'/api/studio/sources/{source_id}/cover'})
 
     @bp.route('/sources/<source_id>', methods=['PUT'])
+    @request_body(UpdateSourceBody)
     def update_source(source_id: str) -> Response | tuple[Response, int]:
         """Update source title or cleaned_text."""
         db = get_db()
@@ -203,6 +203,7 @@ def register_routes(bp) -> None:
         return jsonify({'ok': True})
 
     @bp.route('/sources/<source_id>/re-clean', methods=['POST'])
+    @request_body(ReCleanSourceBody)
     def re_clean_source(source_id: str) -> Response | tuple[Response, int]:
         """Re-run normalizer on a source with different options."""
         db = get_db()
@@ -211,18 +212,7 @@ def register_routes(bp) -> None:
             return jsonify({'error': 'Source not found'}), 404
 
         data = request.json or {}
-        options = CleaningOptions(
-            remove_non_text=data.get('remove_non_text', False),
-            handle_tables=data.get('handle_tables', True),
-            speak_urls=data.get('speak_urls', True),
-            expand_abbreviations=data.get('expand_abbreviations', True),
-            code_block_rule=data.get('code_block_rule', 'skip'),
-            preserve_parentheses=data.get('preserve_parentheses', True),
-            preserve_structure=data.get('preserve_structure', True),
-            paragraph_spacing=data.get('paragraph_spacing', 2),
-            section_spacing=data.get('section_spacing', 3),
-            list_item_spacing=data.get('list_item_spacing', 1),
-        )
+        options = create_cleaning_options_from_request(data)
         cleaned = normalize_text(raw_text, options)
 
         SourceRepository.update_cleaned_text(db, source_id, cleaned)
@@ -230,6 +220,7 @@ def register_routes(bp) -> None:
         return jsonify({'cleaned_text': cleaned})
 
     @bp.route('/sources/<source_id>/move', methods=['PUT'])
+    @request_body(MoveToFolderBody)
     def move_source(source_id: str) -> Response:
         """Move a source to a folder."""
         data = request.json

@@ -2,10 +2,11 @@
 Studio API routes — Settings endpoints.
 """
 
-from flask import jsonify, request, Response
+from flask import Response, jsonify, request
 
 from app.logging_config import get_logger
 from app.studio.db import get_db
+from app.studio.schemas import UpdateSettingsBody, request_body
 
 logger = get_logger('studio.routes.settings')
 
@@ -21,6 +22,7 @@ def register_routes(bp) -> None:
         return jsonify({r['key']: r['value'] for r in rows})
 
     @bp.route('/settings', methods=['PUT'])
+    @request_body(UpdateSettingsBody)
     def update_settings() -> Response:
         """Update settings (key-value pairs)."""
         data = request.json

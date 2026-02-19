@@ -4,9 +4,12 @@ Flask routes for the OpenAI-compatible TTS API.
 
 import time
 
+from apispec import APISpec
+from apispec.ext.marshmallow import MarshmallowPlugin
 from flask import (
     Blueprint,
     Response,
+    current_app,
     jsonify,
     render_template,
     request,
@@ -23,11 +26,51 @@ from app.services.audio import (
     write_wav_header,
 )
 from app.services.tts import get_tts_service
+from app.studio.schemas import SpeechGenerationBody, request_body
 
 logger = get_logger('routes')
 
 # Create blueprint
 api = Blueprint('api', __name__)
+
+
+@api.route('/openapi.json')
+def openapi_spec():
+    """Serve OpenAPI spec for Orval client generation."""
+    from app.studio import studio_bp
+
+    spec = APISpec(
+        title='OpenVox API',
+        version='1.0.0',
+        openapi_version='3.0.3',
+        plugins=[MarshmallowPlugin()],
+    )
+
+    # Add paths from all blueprints
+    for blueprint in [api, studio_bp]:
+        for rule in blueprint.url_map.iter_rules():
+            if rule.endpoint == 'static' or rule.endpoint.startswith('openapi'):
+                continue
+            path = rule.rule.replace('<', '{').replace('>', '}')
+            methods = [m for m in rule.methods if m not in ('HEAD', 'OPTIONS')]
+            for method in methods:
+                method = method.lower()
+                view_func = blueprint.view_functions.get(rule.endpoint)
+                doc = view_func.__doc__.strip() if view_func and view_func.__doc__ else ''
+                summary = doc.split('\n')[0][:50] if doc else ''
+
+                spec.path(
+                    path=path,
+                    operations={
+                        method: {
+                            'summary': summary,
+                            'description': doc,
+                            'responses': {'200': {'description': 'Success'}},
+                        }
+                    },
+                )
+
+    return jsonify(spec.to_dict())
 
 
 @api.route('/')
@@ -89,6 +132,7 @@ def list_voices():
 
 
 @api.route('/v1/audio/speech', methods=['POST'])
+@request_body(SpeechGenerationBody)
 def generate_speech():
     """
     OpenAI-compatible speech generation endpoint.
@@ -103,8 +147,6 @@ def generate_speech():
     Returns:
         Audio file or streaming audio response
     """
-    from flask import current_app
-
     data = request.json
 
     if not data:

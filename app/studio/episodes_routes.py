@@ -7,19 +7,28 @@ import shutil
 import uuid
 from typing import Any
 
-from flask import jsonify, request, send_file, Response
+from flask import Response, jsonify, request, send_file
 
 from app.config import Config
 from app.logging_config import get_logger
 from app.services.tts import get_tts_service
 from app.studio.audio_assembly import merge_chunks_to_episode
-from app.studio.chunking import chunk_text
+from app.studio.chunking import DEFAULT_MAX_CHARS, chunk_text
 from app.studio.db import get_db
 from app.studio.generation import get_generation_queue
 from app.studio.repositories import (
     ChunkRepository,
     EpisodeRepository,
     SourceRepository,
+)
+from app.studio.schemas import (
+    BulkDeleteEpisodesBody,
+    BulkMoveEpisodesBody,
+    CreateEpisodeBody,
+    MoveToFolderBody,
+    RegenerateWithSettingsBody,
+    UpdateEpisodeBody,
+    request_body,
 )
 
 logger = get_logger('studio.routes.episodes')
@@ -29,6 +38,7 @@ def register_routes(bp) -> None:
     """Register episode routes on the blueprint."""
 
     @bp.route('/episodes', methods=['POST'])
+    @request_body(CreateEpisodeBody)
     def create_episode() -> Response | tuple[Response, int]:
         """Create an episode — chunk text and enqueue generation."""
         data = request.json
@@ -47,7 +57,7 @@ def register_routes(bp) -> None:
         voice_id = data.get('voice_id', 'alba')
         output_format = data.get('output_format', 'wav')
         chunk_strategy = data.get('chunk_strategy', 'paragraph')
-        chunk_max_length = data.get('chunk_max_length', 2000)
+        chunk_max_length = data.get('chunk_max_length', DEFAULT_MAX_CHARS)
         code_block_rule = data.get('code_block_rule', 'skip')
         breathing_intensity = data.get('breathing_intensity', 'normal')
         title = data.get('title', source['title'])
@@ -146,6 +156,7 @@ def register_routes(bp) -> None:
         return jsonify(result)
 
     @bp.route('/episodes/<episode_id>', methods=['PUT'])
+    @request_body(UpdateEpisodeBody)
     def update_episode(episode_id: str) -> Response | tuple[Response, int]:
         """Update episode metadata."""
         db = get_db()
@@ -203,6 +214,7 @@ def register_routes(bp) -> None:
         return jsonify({'ok': True, 'status': 'pending'})
 
     @bp.route('/episodes/<episode_id>/regenerate-with-settings', methods=['POST'])
+    @request_body(RegenerateWithSettingsBody)
     def regenerate_with_settings(episode_id: str) -> Response | tuple[Response, int]:
         """Re-generate episode with new settings, with undo support."""
         db = get_db()
@@ -303,6 +315,7 @@ def register_routes(bp) -> None:
         return jsonify({'ok': True})
 
     @bp.route('/episodes/bulk-move', methods=['POST'])
+    @request_body(BulkMoveEpisodesBody)
     def bulk_move_episodes() -> Response | tuple[Response, int]:
         """Move multiple episodes to a folder."""
         data = request.json or {}
@@ -320,6 +333,7 @@ def register_routes(bp) -> None:
         return jsonify({'ok': True, 'moved': len(episode_ids)})
 
     @bp.route('/episodes/bulk-delete', methods=['POST'])
+    @request_body(BulkDeleteEpisodesBody)
     def bulk_delete_episodes() -> Response | tuple[Response, int]:
         """Delete multiple episodes."""
         data = request.json or {}
@@ -476,6 +490,7 @@ def register_routes(bp) -> None:
         return send_file(merged_path)
 
     @bp.route('/episodes/<episode_id>/move', methods=['PUT'])
+    @request_body(MoveToFolderBody)
     def move_episode(episode_id: str) -> Response:
         """Move an episode to a folder."""
         data = request.json

@@ -3,7 +3,6 @@ SQLite database setup, migrations, and connection management.
 """
 
 import sqlite3
-from typing import Any
 
 from flask import g
 

@@ -64,3 +64,19 @@ export function throttle(fn, limit) {
         }
     };
 }
+
+/**
+ * Trigger haptic feedback on supported devices.
+ * @param {string} type - The haptic pattern type: 'light', 'medium', 'heavy', 'success', 'error'.
+ */
+export function triggerHaptic(type = 'light') {
+    if (!('vibrate' in navigator)) return;
+    const patterns = {
+        light: 10,
+        medium: 25,
+        heavy: 50,
+        success: [10, 50, 10],
+        error: [50, 50, 50],
+    };
+    navigator.vibrate(patterns[type] || patterns.light);
+}

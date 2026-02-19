@@ -196,3 +196,5 @@ data
 *.db
 data/*
 data/podcast_studio.db
+playwright-report/
+test-results/

@@ -3,7 +3,7 @@
  * Premium Edition with enhanced visuals
  */
 
-import * as api from './api.js';
+import { client as api } from './api.ts';
 import * as state from './state.js';
 import { toast, confirm as confirmDialog } from './main.js';
 import { loadEpisode } from './player.js';
@@ -115,7 +115,13 @@ function showSwipeActions(item, type, id) {
             {
                 label: 'Move to Folder',
                 icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>',
-                action: () => { /* TODO: Show folder picker */ }
+                action: () => { /* TODO: Feature - Folder Picker Modal for moving episode to different folder
+                 * Context: This is triggered from the "Move to Folder" option in the swipe actions menu.
+                 * Requirement: Create a new UI component - a modal that displays the folder tree and allows
+                 * selecting a destination folder. Should include: folder tree visualization, search/filter,
+                 * create new folder option, and confirm/cancel actions.
+                 * Date: 2026-02-19
+                 * Related: Similar TODO at line 693 for bulk move operation */ }
             },
             {
                 label: 'Rename',
@@ -248,7 +254,7 @@ function _toggleItemSelection(type, id) {
 
 export async function refreshTree() {
     try {
-        const tree = await api.libraryTree();
+        const tree = await api.getApiStudioLibraryTree();
         state.set('libraryTree', tree);
         render(tree);
     } catch (e) {
@@ -551,7 +557,7 @@ function startRenameFolder(item, folder) {
     const finish = async () => {
         const newName = input.value.trim();
         if (newName && newName !== folder.name) {
-            await api.updateFolder(folder.id, { name: newName });
+            await api.putApiStudioFoldersFolderId(folder.id, { name: newName });
             toast('Folder renamed', 'success');
         }
         refreshTree();
@@ -577,7 +583,7 @@ function startRenameSource(item, source) {
     const finish = async () => {
         const newName = input.value.trim();
         if (newName && newName !== source.title) {
-            await api.updateSource(source.id, { title: newName });
+            await api.putApiStudioSourcesSourceId(source.id, { title: newName });
             toast('Source renamed', 'success');
         }
         refreshTree();
@@ -603,7 +609,7 @@ function startRenameEpisode(item, episode) {
     const finish = async () => {
         const newName = input.value.trim();
         if (newName && newName !== episode.title) {
-            await api.updateEpisode(episode.id, { title: newName });
+            await api.putApiStudioEpisodesEpisodeId(episode.id, { title: newName });
             toast('Episode renamed', 'success');
         }
         refreshTree();
@@ -619,7 +625,7 @@ function startRenameEpisode(item, episode) {
 // ── Actions ─────────────────────────────────────────────────────────
 
 async function createSubfolder(parentId) {
-    await api.createFolder('New Folder', parentId);
+    await api.postApiStudioFolders({ name: 'New Folder', parent_id: parentId });
     refreshTree();
     toast('Folder created', 'success');
 }
@@ -627,7 +633,7 @@ async function createSubfolder(parentId) {
 async function doDeleteFolder(id) {
     const ok = await confirmDialog('Delete Folder', 'Delete this folder? Items inside will be moved to the root.');
     if (ok) {
-        await api.deleteFolder(id);
+        await api.deleteApiStudioFoldersFolderId(id);
         refreshTree();
         toast('Folder deleted', 'info');
     }
@@ -636,7 +642,7 @@ async function doDeleteFolder(id) {
 async function doDeleteSource(id) {
     const ok = await confirmDialog('Delete Source', 'Delete this source and all its episodes?');
     if (ok) {
-        await api.deleteSource(id);
+        await api.deleteApiStudioSourcesSourceId(id);
         if (state.get('currentSourceId') === id) {
             window.location.hash = '#import';
         }
@@ -648,7 +654,7 @@ async function doDeleteSource(id) {
 async function doDeleteEpisode(id) {
     const ok = await confirmDialog('Delete Episode', 'Delete this episode and its audio?');
     if (ok) {
-        await api.deleteEpisode(id);
+        await api.deleteApiStudioEpisodesEpisodeId(id);
         if (state.get('currentEpisodeId') === id) {
             window.location.hash = '#import';
         }
@@ -661,12 +667,12 @@ function handleDrop(e, folderId) {
     try {
         const data = JSON.parse(e.dataTransfer.getData('text/plain'));
         if (data.type === 'source') {
-            api.moveSource(data.id, folderId).then(() => {
+            api.putApiStudioSourcesSourceIdMove(data.id, { folder_id: folderId }).then(() => {
                 refreshTree();
                 toast('Source moved', 'success');
             });
         } else if (data.type === 'episode') {
-            api.moveEpisode(data.id, folderId).then(() => {
+            api.putApiStudioEpisodesEpisodeIdMove(data.id, { folder_id: folderId }).then(() => {
                 refreshTree();
                 toast('Episode moved', 'success');
             });
@@ -690,9 +696,22 @@ async function doBulkMove() {
     }
 
     // For now, just move to first folder
-    // TODO: Show folder picker modal
+    // TODO: Feature - Folder Picker Modal for bulk move operation
+    // Context: This is part of the bulk selection feature (doBulkMove function). When users select
+    // multiple episodes and click "Move", they should see a folder picker modal instead of the
+    // current workaround that moves items to the first available folder.
+    // Requirement: Implement a modal component that displays the folder hierarchy with:
+    //   - Visual folder tree with expand/collapse
+    //   - Current folder highlighted
+    //   - "New Folder" button for creating destination on-the-fly
+    //   - Search/filter to quickly find folders
+    //   - Multi-select prevention (only one destination allowed)
+    // Dependencies: This requires the same folder picker component needed at line 118.
+    // Implementation: Consider creating a reusable FolderPickerModal class that can be
+    // instantiated for both single-item moves and bulk operations.
+    // Date: 2026-02-19
     try {
-        await api.bulkMoveEpisodes(episodeIds, folders[0].id);
+        await api.postApiStudioEpisodesBulkMove({ episode_ids: episodeIds, folder_id: folders[0].id });
         toast(`Moved ${episodeIds.length} episode(s)`, 'success');
         exitBulkMode();
         refreshTree();
@@ -709,7 +728,7 @@ async function doBulkDelete() {
     if (!ok) return;
 
     try {
-        await api.bulkDeleteEpisodes(episodeIds);
+        await api.postApiStudioEpisodesBulkDelete({ episode_ids: episodeIds });
         toast(`Deleted ${episodeIds.length} episode(s)`, 'info');
         exitBulkMode();
         refreshTree();
@@ -732,7 +751,7 @@ function getSelectedEpisodeIds() {
 
 async function playFolderPlaylist(folderId) {
     try {
-        const result = await api.playFolder(folderId);
+        const result = await api.postApiStudioFoldersFolderIdPlaylist(folderId);
 
         if (result.episodes && result.episodes.length > 0) {
             // Load first episode
@@ -758,7 +777,7 @@ export function init() {
     document.getElementById('bulk-close-btn')?.addEventListener('click', exitBulkMode);
 
     document.getElementById('btn-new-folder').addEventListener('click', async () => {
-        await api.createFolder('New Folder');
+        await api.postApiStudioFolders({ name: 'New Folder' });
         refreshTree();
         toast('Folder created', 'success');
     });

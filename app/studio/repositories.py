@@ -2,6 +2,7 @@
 Database repository layer - abstracts direct SQL queries from route handlers.
 """
 
+import builtins
 import sqlite3
 from typing import Any
 
@@ -244,7 +245,7 @@ class EpisodeRepository:
         db.execute('UPDATE episodes SET folder_id = ? WHERE id = ?', (folder_id, episode_id))
 
     @staticmethod
-    def get_by_folder(db: sqlite3.Connection, folder_id: str) -> list[sqlite3.Row]:
+    def get_by_folder(db: sqlite3.Connection, folder_id: str) -> builtins.list[sqlite3.Row]:
         return db.execute(
             'SELECT * FROM episodes WHERE folder_id = ? ORDER BY created_at DESC',
             (folder_id,),

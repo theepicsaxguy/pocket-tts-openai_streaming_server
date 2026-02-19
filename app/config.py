@@ -93,6 +93,9 @@ class Config:
     # Supported audio extensions for custom voices
     VOICE_EXTENSIONS = ('.wav', '.mp3', '.flac', '.safetensors')
 
+    # File size limits (bytes)
+    MAX_FILE_SIZE = 512 * 1024  # 500KB
+
     @classmethod
     def get_bundle_paths(cls) -> tuple:
         """Get bundled paths for frozen executables."""
