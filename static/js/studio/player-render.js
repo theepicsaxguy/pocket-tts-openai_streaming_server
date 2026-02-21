@@ -2,10 +2,15 @@
  * Player rendering functions - mini player, fullscreen player, UI updates
  */
 
-import { client as api, fullEpisodeAudioUrl } from './api.js';
+import { client as api, fullEpisodeAudioUrl } from './api.bundle.js';
 import { toast } from './main.js';
 import { $, formatTime, triggerHaptic } from './utils.js';
 import * as playerState from './player-state.js';
+import * as playerControls from './player-controls.js';
+import * as playerChunk from './player-chunk.js';
+import * as playerQueue from './player-queue.js';
+import * as playerWaveform from './player-waveform.js';
+import { createElement, clearContent } from './dom.js';
 
 const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
@@ -16,8 +21,7 @@ export function initFullscreenPlayer() {
     $('fs-btn-minimize').addEventListener('click', closeFullscreenPlayer);
 
     $('fs-btn-play')?.addEventListener('click', () => {
-        const { togglePlay } = window.playerControls || {};
-        if (togglePlay) togglePlay();
+        playerControls.togglePlay();
     });
 
     $('fs-scrubber')?.addEventListener('input', handleFullscreenSeek);
@@ -66,15 +70,12 @@ function handleFullscreenSeek(e) {
         const chunkStartTime = playerState.calculateEpisodeTime(currentChunkIndex);
         audio.currentTime = targetTime - chunkStartTime;
     } else {
-        const { loadChunk } = window.playerChunk || {};
-        if (loadChunk) {
-            loadChunk(targetChunk.chunk_index).then(() => {
-                const chunkStartTime = playerState.calculateEpisodeTime(targetChunk.chunk_index);
-                if (audio) {
-                    audio.currentTime = targetTime - chunkStartTime;
-                }
-            });
-        }
+        playerChunk.loadChunk(targetChunk.chunk_index).then(() => {
+            const chunkStartTime = playerState.calculateEpisodeTime(targetChunk.chunk_index);
+            if (audio) {
+                audio.currentTime = targetTime - chunkStartTime;
+            }
+        });
     }
 
     $('fs-progress-fill').style.width = `${pct}%`;
@@ -130,15 +131,13 @@ function initFullscreenVolume() {
             const audio = playerState.getAudio();
             if (audio) audio.volume = vol;
             localStorage.setItem('pocket_tts_volume', vol);
-            const { updateMuteButton } = window.playerControls || {};
-            if (updateMuteButton) updateMuteButton(vol > 0, fsMuteBtn);
+            playerControls.updateMuteButton(vol > 0, fsMuteBtn);
         });
     }
 
     if (fsMuteBtn) {
         fsMuteBtn.addEventListener('click', () => {
-            const { toggleMute } = window.playerControls || {};
-            if (toggleMute) toggleMute(fsMuteBtn);
+            playerControls.toggleMute(fsMuteBtn);
         });
     }
 }
@@ -149,25 +148,10 @@ function initFullscreenButtons() {
         showEpisodeMenu(episode?.id);
     });
 
-    $('fs-btn-skip-back')?.addEventListener('click', () => {
-        const { skip } = window.playerControls || {};
-        if (skip) skip(-10);
-    });
-
-    $('fs-btn-skip-forward')?.addEventListener('click', () => {
-        const { skip } = window.playerControls || {};
-        if (skip) skip(10);
-    });
-
-    $('fs-btn-prev')?.addEventListener('click', () => {
-        const { prevChunk } = window.playerControls || {};
-        if (prevChunk) prevChunk();
-    });
-
-    $('fs-btn-next')?.addEventListener('click', () => {
-        const { nextChunk } = window.playerControls || {};
-        if (nextChunk) nextChunk();
-    });
+    $('fs-btn-skip-back')?.addEventListener('click', () => playerControls.skip(-10));
+    $('fs-btn-skip-forward')?.addEventListener('click', () => playerControls.skip(10));
+    $('fs-btn-prev')?.addEventListener('click', () => playerControls.prevChunk());
+    $('fs-btn-next')?.addEventListener('click', () => playerControls.nextChunk());
 
     $('fs-btn-sleep')?.addEventListener('click', () => {
         showSleepTimerMenu();
@@ -189,29 +173,27 @@ function handleFullscreenKeydown(e) {
     const isFullscreen = playerState.getIsFullscreen ? playerState.getIsFullscreen() : false;
     if (!isFullscreen) return;
 
-    const { togglePlay, skip, prevChunk, nextChunk } = window.playerControls || {};
-
     switch (e.key) {
     case 'Escape':
         closeFullscreenPlayer();
         break;
     case ' ':
         e.preventDefault();
-        if (togglePlay) togglePlay();
+        playerControls.togglePlay();
         break;
     case 'ArrowLeft':
-        if (skip) skip(-10);
+        playerControls.skip(-10);
         break;
     case 'ArrowRight':
-        if (skip) skip(10);
+        playerControls.skip(10);
         break;
     case 'n':
     case 'N':
-        if (nextChunk) nextChunk();
+        playerControls.nextChunk();
         break;
     case 'p':
     case 'P':
-        if (prevChunk) prevChunk();
+        playerControls.prevChunk();
         break;
     }
 }
@@ -298,42 +280,45 @@ function renderChunkSegments() {
     const chunks = playerState.getChunks();
     const totalDuration = playerState.getTotalDuration();
     if (!chunks.length || !totalDuration) {
-        container.innerHTML = '';
+        clearContent(container);
         return;
     }
 
     if (container.dataset.chunkCount === String(chunks.length)) return;
     container.dataset.chunkCount = String(chunks.length);
 
-    let html = '';
+    clearContent(container);
     let offset = 0;
     for (let i = 0; i < chunks.length; i++) {
         const dur = chunks[i].duration_secs || 0;
         const leftPct = (offset / totalDuration) * 100;
         const widthPct = (dur / totalDuration) * 100;
+
         if (i > 0) {
-            html += `<div class="fs-chunk-divider" style="left:${leftPct}%"></div>`;
+            const divider = createElement('div', {
+                className: 'fs-chunk-divider',
+                style: { left: `${leftPct}%` }
+            });
+            container.appendChild(divider);
         }
-        html += `<div class="fs-chunk-seg" data-chunk="${i}" style="left:${leftPct}%;width:${widthPct}%" title="Part ${i + 1}"></div>`;
+
+        const seg = createElement('div', {
+            className: 'fs-chunk-seg',
+            title: `Part ${i + 1}`,
+            style: { left: `${leftPct}%`, width: `${widthPct}%` }
+        });
+        seg.dataset.chunk = String(i);
+        const chunkRef = chunks[i];
+        seg.addEventListener('click', () => {
+            playerChunk.loadChunk(chunkRef.chunk_index).then(() => {
+                const audio = playerState.getAudio();
+                if (audio) audio.play().catch((e) => console.warn('Chunk play failed:', e.message));
+            });
+        });
+        container.appendChild(seg);
+
         offset += dur;
     }
-    container.innerHTML = html;
-
-    container.querySelectorAll('.fs-chunk-seg').forEach(seg => {
-        seg.addEventListener('click', () => {
-            const chunkIdx = parseInt(seg.dataset.chunk, 10);
-            const chunk = chunks[chunkIdx];
-            if (chunk) {
-                const { loadChunk } = window.playerChunk || {};
-                if (loadChunk) {
-                    loadChunk(chunk.chunk_index).then(() => {
-                        const audio = playerState.getAudio();
-                        if (audio) audio.play().catch(() => {});
-                    });
-                }
-            }
-        });
-    });
 }
 
 function updateSubtitleDisplay(chunk) {
@@ -355,19 +340,17 @@ function updateSubtitleDisplay(chunk) {
     }
 }
 
-function escapeForSubtitle(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 function renderKaraokeIdle(message) {
     const el = $('fs-subtitle-text');
     if (!el) return;
+    clearContent(el);
     const words = message.split(/\s+/);
-    el.innerHTML = words.map(w =>
-        `<span class="karaoke-word spoken">${escapeForSubtitle(w)}</span>`
-    ).join(' ');
+    const fragment = document.createDocumentFragment();
+    words.forEach((w, i) => {
+        if (i > 0) fragment.appendChild(document.createTextNode(' '));
+        fragment.appendChild(createElement('span', { className: 'karaoke-word spoken' }, [w]));
+    });
+    el.appendChild(fragment);
 }
 
 function renderKaraoke(sentences, sentenceIndex, wordIndex) {
@@ -378,14 +361,16 @@ function renderKaraoke(sentences, sentenceIndex, wordIndex) {
     if (!sentence) return;
 
     const words = sentence.split(/\s+/);
-    const html = words.map((word, i) => {
+    clearContent(el);
+    const fragment = document.createDocumentFragment();
+    words.forEach((word, i) => {
+        if (i > 0) fragment.appendChild(document.createTextNode(' '));
         let cls = 'karaoke-word';
         if (i < wordIndex) cls += ' spoken';
         else if (i === wordIndex) cls += ' active';
-        return `<span class="${cls}">${escapeForSubtitle(word)}</span>`;
-    }).join(' ');
-
-    el.innerHTML = html;
+        fragment.appendChild(createElement('span', { className: cls }, [word]));
+    });
+    el.appendChild(fragment);
 }
 
 export function updateSubtitles(text) {
@@ -454,10 +439,9 @@ export function showPlayer() {
 
     document.querySelector('.app-shell')?.classList.add('has-player');
 
-    const { drawWaveform, startWaveformAnimation } = window.playerWaveform || {};
     setTimeout(() => {
-        if (drawWaveform) drawWaveform();
-        if (startWaveformAnimation) startWaveformAnimation();
+        playerWaveform.drawWaveform();
+        playerWaveform.startWaveformAnimation();
     }, 100);
 }
 
@@ -481,11 +465,8 @@ export function updatePlayerUI() {
     const numEl = $('player-chunk-num');
     if (numEl) numEl.textContent = `${idx + 1} / ${chunks.length}`;
 
-    const { updatePlayPauseIcon } = window.playerControls || {};
     const audio = playerState.getAudio();
-    if (updatePlayPauseIcon) {
-        updatePlayPauseIcon(!audio?.paused);
-    }
+    playerControls.updatePlayPauseIcon(!audio?.paused);
 
     document.querySelectorAll('.chunk-card').forEach(el => el.classList.remove('playing'));
     const playingCard = document.querySelector(`.chunk-card[data-index="${currentChunkIndex}"]`);
@@ -517,7 +498,9 @@ export function updateMediaSession() {
                 playbackRate: audio.playbackRate,
                 position: audio.currentTime,
             });
-        } catch (_) {}
+        } catch (err) {
+            console.warn('MediaSession position state error:', err.message);
+        }
     }
 }
 
@@ -540,8 +523,7 @@ export function updateNowPlayingView() {
         indicator.classList.toggle('active', !!(audio && !audio.paused));
     }
 
-    const { renderQueue } = window.playerQueue || {};
-    if (renderQueue) renderQueue();
+    playerQueue.renderQueue();
 }
 
 export function updateTimeDisplays() {
@@ -637,8 +619,8 @@ function showEpisodeMenu(episodeId) {
                 try {
                     await api.postApiStudioEpisodesEpisodeIdRegenerate(episodeId);
                     toast('Episode regeneration started', 'info');
-                } catch (_) {
-                    toast('Failed to start regeneration', 'error');
+                } catch (err) {
+                    toast(`Failed to start regeneration: ${err.message}`, 'error');
                 }
             }
         },
@@ -651,36 +633,47 @@ async function showEpisodeListSheet() {
 
     window.openBottomSheet?.('Episodes', []);
 
-    content.innerHTML = '<p style="color: var(--text-muted); padding: 20px; text-align: center;">Loading...</p>';
+    const loadingMsg = createElement('p', {
+        style: { color: 'var(--text-muted)', padding: '20px', textAlign: 'center' }
+    }, ['Loading...']);
+    clearContent(content);
+    content.appendChild(loadingMsg);
 
     try {
         const library = await api.getApiStudioLibraryTree();
         const episodes = library.episodes || [];
         const currentEpisode = playerState.getCurrentEpisode();
 
-        content.innerHTML = '';
+        clearContent(content);
 
         if (!episodes.length) {
-            content.innerHTML = '<p style="color: var(--text-muted); padding: 20px; text-align: center;">No episodes yet</p>';
+            content.appendChild(createElement('p', {
+                style: { color: 'var(--text-muted)', padding: '20px', textAlign: 'center' }
+            }, ['No episodes yet']));
         } else {
             episodes.forEach(episode => {
                 const isCurrent = episode.id === currentEpisode?.id;
-                const item = document.createElement('button');
-                item.className = `bottom-sheet-action ${isCurrent ? 'active' : ''}`;
-                item.innerHTML = `
-                    <span>${escapeForSubtitle(episode.title)}</span>
-                    <span style="font-size:0.8rem;color:var(--text-muted)">${episode.total_duration_secs ? formatTime(episode.total_duration_secs) : ''}</span>
-                `;
+                const item = createElement('button', {
+                    className: `bottom-sheet-action ${isCurrent ? 'active' : ''}`
+                }, [
+                    createElement('span', {}, [episode.title]),
+                    createElement('span', {
+                        style: { fontSize: '0.8rem', color: 'var(--text-muted)' }
+                    }, [episode.total_duration_secs ? formatTime(episode.total_duration_secs) : ''])
+                ]);
                 item.addEventListener('click', () => {
                     window.closeBottomSheet?.();
-                    const { loadEpisode } = window.playerChunk || {};
-                    if (loadEpisode) loadEpisode(episode.id);
+                    playerChunk.loadEpisode(episode.id);
                 });
                 content.appendChild(item);
             });
         }
-    } catch (_) {
-        content.innerHTML = '<p style="color: var(--text-muted); padding: 20px; text-align: center;">Failed to load episodes</p>';
+    } catch (err) {
+        console.error('Failed to load episode list:', err);
+        clearContent(content);
+        content.appendChild(createElement('p', {
+            style: { color: 'var(--text-muted)', padding: '20px', textAlign: 'center' }
+        }, ['Failed to load episodes']));
     }
 }
 
@@ -736,8 +729,7 @@ export function setSleepTimer(seconds) {
         if (sleepTimerRemaining <= 0) {
             cancelSleepTimer();
             audio?.pause();
-            const { savePosition } = window.playerControls || {};
-            if (savePosition) savePosition();
+            playerControls.savePosition();
             triggerHaptic('success');
             toast('Sleep timer ended', 'info');
         }

@@ -2,10 +2,11 @@
  * Player controls - play/pause, seek, volume, speed
  */
 
-import { client as api, chunkAudioUrl } from './api.js';
+import { client as api, chunkAudioUrl } from './api.bundle.js';
 import { $, triggerHaptic } from './utils.js';
 import { toast } from './main.js';
 import * as playerState from './player-state.js';
+import * as playerChunk from './player-chunk.js';
 
 let saveTimer = null;
 
@@ -151,7 +152,7 @@ export function togglePlay() {
     const audio = playerState.getAudio();
     if (!audio) return;
     if (audio.paused) {
-        audio.play().catch(() => {});
+        audio.play().catch((e) => console.warn('Play failed:', e.message));
     } else {
         audio.pause();
         savePosition();
@@ -162,7 +163,7 @@ export function togglePlay() {
 export function play() {
     const audio = playerState.getAudio();
     if (audio) {
-        audio.play().catch(() => {});
+        audio.play().catch((e) => console.warn('Play failed:', e.message));
     }
 }
 
@@ -192,12 +193,9 @@ export function prevChunk() {
     const idx = chunks.findIndex(c => c.chunk_index === currentChunkIndex);
     if (idx > 0) {
         savePosition();
-        const { loadChunk: chunkLoad } = window.playerChunk || {};
-        if (chunkLoad) {
-            chunkLoad(chunks[idx - 1].chunk_index);
-            const audio = playerState.getAudio();
-            if (audio) audio.play().catch(() => {});
-        }
+        playerChunk.loadChunk(chunks[idx - 1].chunk_index);
+        const audio = playerState.getAudio();
+        if (audio) audio.play().catch((e) => { toast(`Playback failed: ${e.message}`, 'error'); });
     }
 }
 
@@ -207,12 +205,9 @@ export function nextChunk() {
     const idx = chunks.findIndex(c => c.chunk_index === currentChunkIndex);
     if (idx >= 0 && idx < chunks.length - 1) {
         savePosition();
-        const { loadChunk: chunkLoad } = window.playerChunk || {};
-        if (chunkLoad) {
-            chunkLoad(chunks[idx + 1].chunk_index);
-            const audio = playerState.getAudio();
-            if (audio) audio.play().catch(() => {});
-        }
+        playerChunk.loadChunk(chunks[idx + 1].chunk_index);
+        const audio = playerState.getAudio();
+        if (audio) audio.play().catch((e) => { toast(`Playback failed: ${e.message}`, 'error'); });
     }
 }
 
@@ -301,7 +296,7 @@ function savePosition(forcePct) {
         current_chunk_index: currentChunkIndex,
         position_secs: playerState.getAudio() ? playerState.getAudio().currentTime : 0,
         percent_listened: Math.min(100, pct),
-    }).catch(() => {});
+    }).catch((err) => console.warn('Failed to save playback position:', err.message));
 }
 
 function startPeriodicSave() {
