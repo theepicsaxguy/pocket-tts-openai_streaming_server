@@ -11,7 +11,8 @@
     "openapi:generate": ".venv/bin/python scripts/generate_openapi.py",
     "openapi:validate": ".venv/bin/python scripts/validate_openapi.py",
     "client:generate": "pnpm openapi:generate && orval && pnpm api:bundle",
-    "api:bundle": "esbuild static/js/studio/api.ts --bundle --format=esm --outfile=static/js/studio/api.bundle.js --sourcemap"
+    "api:bundle": "esbuild static/js/studio/api.ts --bundle --format=esm --outfile=static/js/studio/api.bundle.js --sourcemap",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
@@ -20,6 +21,7 @@
     "esbuild": "^0.27.3",
     "eslint": "^10.0.0",
     "orval": "^8.4.0",
+    "typescript": "^5.9.3",
     "yaml": "^2.0.0"
   },
   "dependencies": {
