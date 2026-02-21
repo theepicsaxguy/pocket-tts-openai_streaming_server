@@ -41,11 +41,16 @@ This is NOT a developer tool. It's a consumer product.
 - [ ] **Keyboard shortcuts** - Power user features
 
 ### Player
-- [ ] **Waveform visualization** - Animated, beautiful
-- [ ] **Gesture controls** - Swipe left/right for skip on mobile
-- [ ] **Sleep timer** - 15/30/45/60 min, end of chapter
-- [ ] **Media Session API** - Lock screen controls
-- [ ] **Share functionality** - Web Share API
+- [x] **Karaoke subtitles** - Word-by-word highlight, one sentence at a time, dead center
+- [x] **Chunked progress bar** - Chunk segment markers on scrubber, tap to jump
+- [x] **Playback speed control** - Speed pill cycles 0.5x-3x, prominent in player
+- [x] **Chunk navigation** - Prev/next chunk buttons (not tracks)
+- [x] **Queue behind button** - Hidden behind button to reduce cognitive noise
+- [x] **Waveform visualization** - Animated, beautiful
+- [x] **Gesture controls** - Swipe left/right for skip on mobile
+- [x] **Sleep timer** - 15/30/45/60 min, end of chapter
+- [x] **Media Session API** - Lock screen controls
+- [x] **Share functionality** - Web Share API
 
 ---
 
@@ -110,20 +115,21 @@ This is NOT a developer tool. It's a consumer product.
 ## 🎧 Studio UI
 
 ### P1
-- [ ] **Better player**
-  - Chapter markers from headings
-  - Skip-to-chapter
-  - Playback speed presets
+- [x] **Better player**
+  - Chunk markers on progress bar (natural chapters from TTS chunks)
+  - Tap-to-jump on chunk segments
+  - Playback speed pill (0.5x-3x)
+  - Karaoke-style word-by-word subtitles
 - [ ] **Improved library**
   - Smart playlists (recent, in-progress, favorites)
   - Search across all content
   - Bulk operations
 
 ### P2
-- [ ] **Transcript view**
-  - Show text alongside audio
-  - Highlight current position
-  - Click to seek
+- [x] **Transcript/subtitle view**
+  - Karaoke word-by-word highlight in fullscreen player
+  - Current word highlighted with glow
+  - Sentence-level display centered on screen
 
 ### P3
 - [ ] **PWA/offline**
@@ -138,10 +144,11 @@ This is NOT a developer tool. It's a consumer product.
 *Features inspired by Speechify and Natural Reader for enhanced accessibility and productivity*
 
 ### P1 (High Priority)
-- [ ] **Extended Speed Control** — 0.5x to 9x playback (Speechify feature)
+- [x] **Speed Control** — 0.5x to 3x playback via speed pill
+  - Speed pill in fullscreen player (tap to cycle)
+  - Preset speeds: 0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x, 2.5x, 3x
+- [ ] **Extended Speed Control** — Up to 9x playback (Speechify feature)
   - Browser audio processing to exceed native limits
-  - Preset speeds: 0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x, 3x, 4.5x, 9x
-  - Fine-grained slider in player
 
 - [ ] **OCR / Camera Scanning** — Scan physical books (Speechify's standout feature)
   - Use Tesseract.js in browser for client-side OCR
