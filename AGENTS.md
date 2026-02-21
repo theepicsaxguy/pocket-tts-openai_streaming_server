@@ -106,10 +106,11 @@ All endpoints are auto-generated from Flask routes. Run `pnpm run client:generat
 
 ## Workflow
 
-1. **Import** (`#import`) - Full-screen import: file upload, paste URL, or text
+1. **Add Content** (`#import`) - Full-screen: paste text, upload file, grab URL, or clone git repo
 2. **Review** (`#source/{id}`) - View cleaned text, configure voice/chunk settings, generate
-3. **Episode** (`#episode/{id}`) - Full-screen player, track generation progress, download
-4. **Library** (`#library`) - Organize sources/episodes in folders, swipe to browse
+3. **Episode** (`#episode/{id}`) - Track generation progress, view chunks, download
+4. **Listen** (fullscreen player overlay) - Karaoke subtitles, chunked scrubber, speed control
+5. **Library** (`#library`) - Episodes first, sources second, organized in folders
 
 ## Development
 
@@ -185,14 +186,22 @@ data/
 - Three-pane optional, not default
 
 ### Screens (Hash Routes)
-- `#import` - Import new content (full screen, default)
-- `#library` - User's content organized
+- `#import` - Add content (full screen, default landing)
+- `#library` - User's content organized (episodes first)
 - `#source/{id}` - Source details
 - `#review/{id}` - Review cleaned text before generation
-- `#episode/{id}` - Episode player (full screen)
-- `#now-playing` - Currently playing episode
-- `#queue` - Playback queue
+- `#episode/{id}` - Episode detail, generation progress
+- `#search` - Search/filter content
 - `#settings` - Settings panel
+- **Fullscreen Player** - Opens as overlay (not a hash route), triggered by tapping mini-player or via `openFullscreenPlayer()`
+
+### Now Playing / Fullscreen Player
+The fullscreen player is the core experience. When audio is active, the mini-player bar sits above the bottom nav. Tapping it opens a full-screen overlay:
+- **Header**: Small title + episode info, down-chevron to minimize, more-options menu
+- **Karaoke Subtitles** (center, takes ~60% of screen): One sentence at a time, word-by-word highlight moves left-to-right. The user's eye stays in one place; the highlight moves to them. Dead center of screen.
+- **Chunked Progress Bar**: Each chunk is a visible segment on the scrubber with divider markers. Tap a segment to jump to that chunk.
+- **Controls**: Speed pill (cycles through speeds), prev chunk, skip back 10s, play/pause, skip forward 10s, next chunk, queue button
+- **Bottom Row**: Sleep timer, volume, download
 
 JavaScript modules:
 - `main.js` - Entry point, routing, bottom tab nav, toast/confirm utilities
@@ -204,7 +213,7 @@ JavaScript modules:
 - `player-controls.js` - Play/pause, seek, volume controls
 - `player-queue.js` - Queue management, shuffle, repeat
 - `player-waveform.js` - Waveform visualization
-- `player-render.js` - Mini/full player rendering
+- `player-render.js` - Mini/full player rendering, karaoke subtitle system, chunk segment rendering
 - `player-chunk.js` - Chunk loading and playback
 - `settings.js` - Settings panel
 - `state.js` - Pub/sub state management

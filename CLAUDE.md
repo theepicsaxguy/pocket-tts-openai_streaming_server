@@ -116,9 +116,36 @@ Each module should have a tiny documented interface so you can swap implementati
 
 ## UI/UX direction (what “amazing” means here)
 - Dark mode first.
-- Three-pane layout is ideal:
+- **Mobile-first**: Bottom tab navigation (Generate, Library, Search, Settings). No sidebar on mobile.
+- **Desktop**: Three-pane layout is ideal:
   1) Library tree (left)  
   2) Document/episode view + chunk preview (center)  
   3) Settings + voice/chunk controls (right)
-- Clear “import → preview → chunk → generate → listen → saved” flow.
-- Feels like a podcast player, but optimized for docs.
+- Clear “add → review → generate → listen → library” flow.
+- Feels like a podcast player, but optimized for docs and neurodivergent users.
+
+### The Fullscreen Player (core experience)
+The fullscreen player takes over the entire screen when audio is playing. It is the most important screen.
+
+**Karaoke-style subtitles** are front and center:
+- One sentence visible at a time, dead center of the screen
+- Word-level highlight that moves left-to-right as the TTS speaks
+- The user's eye stays in one fixed position — the highlight moves to them
+- Previous words are dimmed (spoken), upcoming words are very dim, active word is accent-colored with glow
+- This eliminates visual tracking effort — critical for neurodivergent users
+
+**Chunked progress bar**:
+- Each TTS chunk is a visible segment on the scrubber
+- Divider markers between chunks so users know where they are in content
+- Tap a segment to jump to that chunk
+
+**Controls**:
+- Speed pill (tap to cycle: 0.5x → 3x) — non-negotiable for focus/processing needs
+- Prev/next chunk buttons (not track — these skip chunks, the natural chapters)
+- Skip back/forward 10 seconds
+- Queue hidden behind a button (not always visible — reduces cognitive noise)
+
+**Mini-player bar**:
+- Persistent bar above bottom nav when audio is active
+- Tap to expand to fullscreen
+- Shows title, chunk info, play/pause, next chunk
