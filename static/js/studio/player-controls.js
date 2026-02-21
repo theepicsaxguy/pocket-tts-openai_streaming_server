@@ -152,7 +152,7 @@ export function togglePlay() {
     const audio = playerState.getAudio();
     if (!audio) return;
     if (audio.paused) {
-        audio.play().catch(() => {});
+        audio.play().catch((e) => console.warn('Play failed:', e.message));
     } else {
         audio.pause();
         savePosition();
@@ -163,7 +163,7 @@ export function togglePlay() {
 export function play() {
     const audio = playerState.getAudio();
     if (audio) {
-        audio.play().catch(() => {});
+        audio.play().catch((e) => console.warn('Play failed:', e.message));
     }
 }
 
@@ -296,7 +296,7 @@ function savePosition(forcePct) {
         current_chunk_index: currentChunkIndex,
         position_secs: playerState.getAudio() ? playerState.getAudio().currentTime : 0,
         percent_listened: Math.min(100, pct),
-    }).catch(() => {});
+    }).catch((err) => console.warn('Failed to save playback position:', err.message));
 }
 
 function startPeriodicSave() {

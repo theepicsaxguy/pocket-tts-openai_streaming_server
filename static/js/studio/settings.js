@@ -156,7 +156,9 @@ function startStatusPolling() {
         try {
             const status = await api.getApiStudioGenerationStatus();
             updateGenerationStatusUI(status);
-        } catch {}
+        } catch (err) {
+            console.warn('Generation status poll failed:', err.message);
+        }
     }, 5000);
 }
 

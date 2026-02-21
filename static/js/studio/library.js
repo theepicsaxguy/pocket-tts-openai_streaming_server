@@ -671,14 +671,16 @@ function handleDrop(e, folderId) {
             api.putApiStudioSourcesSourceIdMove(data.id, { folder_id: folderId }).then(() => {
                 refreshTree();
                 toast('Source moved', 'success');
-            });
+            }).catch((err) => toast(`Move failed: ${err.message}`, 'error'));
         } else if (data.type === 'episode') {
             api.putApiStudioEpisodesEpisodeIdMove(data.id, { folder_id: folderId }).then(() => {
                 refreshTree();
                 toast('Episode moved', 'success');
-            });
+            }).catch((err) => toast(`Move failed: ${err.message}`, 'error'));
         }
-    } catch {}
+    } catch (err) {
+        toast(`Drop failed: ${err.message}`, 'error');
+    }
 }
 
 // ── Bulk Operations ────────────────────────────────────────────────────

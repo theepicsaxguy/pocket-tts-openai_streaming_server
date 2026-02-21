@@ -491,7 +491,9 @@ export function updateMediaSession() {
                 playbackRate: audio.playbackRate,
                 position: audio.currentTime,
             });
-        } catch (_) {}
+        } catch (err) {
+            console.warn('MediaSession position state error:', err.message);
+        }
     }
 }
 
@@ -610,8 +612,8 @@ function showEpisodeMenu(episodeId) {
                 try {
                     await api.postApiStudioEpisodesEpisodeIdRegenerate(episodeId);
                     toast('Episode regeneration started', 'info');
-                } catch (_) {
-                    toast('Failed to start regeneration', 'error');
+                } catch (err) {
+                    toast(`Failed to start regeneration: ${err.message}`, 'error');
                 }
             }
         },
@@ -651,7 +653,8 @@ async function showEpisodeListSheet() {
                 content.appendChild(item);
             });
         }
-    } catch (_) {
+    } catch (err) {
+        console.error('Failed to load episode list:', err);
         content.innerHTML = '<p style="color: var(--text-muted); padding: 20px; text-align: center;">Failed to load episodes</p>';
     }
 }

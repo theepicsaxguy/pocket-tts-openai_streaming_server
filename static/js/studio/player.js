@@ -103,7 +103,9 @@ function shareEpisode() {
     if (navigator.share) {
         navigator.share(shareData)
             .then(() => triggerHaptic('success'))
-            .catch(() => {});
+            .catch((e) => {
+                if (e.name !== 'AbortError') console.warn('Share failed:', e.message);
+            });
     } else {
         navigator.clipboard.writeText(window.location.href)
             .then(() => {

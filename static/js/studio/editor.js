@@ -325,8 +325,8 @@ async function loadReview(sourceId) {
                     coverPlaceholder.classList.add('hidden');
                 };
                 toast('Cover uploaded', 'success');
-            } catch (_e) {
-                toast('Failed to upload cover', 'error');
+            } catch (err) {
+                toast(`Failed to upload cover: ${err.message}`, 'error');
             }
         };
 
@@ -711,7 +711,9 @@ async function loadEpisode(episodeId) {
                         clearInterval(episodeRefreshInterval);
                         refreshTree();
                     }
-                } catch {}
+                } catch (err) {
+                    console.warn('Episode refresh failed:', err.message);
+                }
             }, 3000);
         }
     } catch (e) {
