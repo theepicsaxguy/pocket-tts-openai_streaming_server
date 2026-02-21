@@ -10,7 +10,7 @@ import { refreshTree } from './library.js';
 import { loadEpisode as playerLoadEpisode } from './player.js';
 import { openFullscreenPlayer } from './player-render.js';
 import { escapeHtml, formatTime } from './utils.js';
-import { clearContent, createElement, createPills, fromHTML } from './dom.js';
+import { clearContent, createElement, createPills, fromHTML, setTrustedHTML } from './dom.js';
 
 // ── View switching ──────────────────────────────────────────────────
 
@@ -383,14 +383,13 @@ function initReviewView() {
         const btn = document.getElementById('btn-review-generate');
         const originalContent = btn.innerHTML;
 
-        // Loading state
         btn.disabled = true;
-        btn.innerHTML = `
+        setTrustedHTML(btn, `
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin">
                 <circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="20"/>
             </svg>
             Generating...
-        `;
+        `);
 
         const data = {
             source_id: sourceId,
@@ -410,7 +409,7 @@ function initReviewView() {
             toast(e.message, 'error');
         } finally {
             btn.disabled = false;
-            btn.innerHTML = originalContent;
+            setTrustedHTML(btn, originalContent);
         }
     });
 
@@ -423,12 +422,12 @@ function initReviewView() {
             const originalContent = btn.innerHTML;
 
             btn.disabled = true;
-            btn.innerHTML = `
+            setTrustedHTML(btn, `
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin">
                     <circle cx="12" cy="12" r="10" stroke-dasharray="60" stroke-dashoffset="20"/>
                 </svg>
                 Generating...
-            `;
+            `);
 
             const data = {
                 source_id: sourceId,
@@ -448,7 +447,7 @@ function initReviewView() {
                 toast(e.message, 'error');
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = originalContent;
+                setTrustedHTML(btn, originalContent);
             }
         });
     }
@@ -843,7 +842,7 @@ function renderEpisode(episode) {
         const actionsDiv = createElement('div', { className: 'chunk-actions' });
         if (chunk.status === 'ready') {
             const playBtn = createElement('button', { className: 'chunk-btn play-chunk', title: 'Play', data_index: chunk.chunk_index });
-            playBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+            setTrustedHTML(playBtn, '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>');
             playBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 playerLoadEpisode(episode.id, chunk.chunk_index);
@@ -852,7 +851,7 @@ function renderEpisode(episode) {
         }
         if (chunk.status === 'error' || chunk.status === 'ready') {
             const regenBtn = createElement('button', { className: 'chunk-btn regen-chunk', title: 'Regenerate', data_index: chunk.chunk_index });
-            regenBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+            setTrustedHTML(regenBtn, '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>');
             regenBtn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 await api.postApiStudioEpisodesEpisodeIdChunksChunkIndexRegenerate(episode.id, chunk.chunk_index);

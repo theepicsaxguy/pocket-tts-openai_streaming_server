@@ -8,6 +8,12 @@ export default defineConfig({
     output: {
       target: './static/js/studio/client.ts',
       client: 'axios',
+      override: {
+        mutator: {
+          path: './static/js/studio/custom-instance.ts',
+          name: 'customInstance',
+        },
+      },
     },
   },
 });

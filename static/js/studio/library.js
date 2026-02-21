@@ -8,7 +8,7 @@ import * as state from './state.js';
 import { toast, confirm as confirmDialog } from './main.js';
 import { loadEpisode } from './player.js';
 import { openFullscreenPlayer } from './player-render.js';
-import { createElement, clearContent } from './dom.js';
+import { createElement, clearContent, setTrustedHTML } from './dom.js';
 
 const SVG_FOLDER = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
     <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
@@ -34,7 +34,12 @@ let isBulkMode = false;
 
 // ── Touch Gestures & Swipe Actions ────────────────────────────────
 
+let touchGesturesInitialized = false;
+
 function initTouchGestures() {
+    if (touchGesturesInitialized) return;
+    touchGesturesInitialized = true;
+
     const tree = document.getElementById('library-tree');
     if (!tree) return;
 
@@ -59,17 +64,20 @@ function initTouchGestures() {
 
         const diffX = touchEndX - touchStartX;
         const diffY = touchEndY - touchStartY;
+        const absX = Math.abs(diffX);
+        const absY = Math.abs(diffY);
 
-        // Horizontal swipe
-        if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY) * 2) {
+        // Require strong horizontal intent:
+        // - at least 80px horizontal travel
+        // - at most 40px vertical travel (prevents scroll-triggered swipes)
+        // - horizontal distance must dominate vertical by 3:1
+        if (absX > 80 && absY < 40 && absX > absY * 3) {
             const type = touchedElement.dataset.type;
             const id = touchedElement.dataset.id;
 
             if (diffX > 0) {
-                // Swipe right - show actions
                 showSwipeActions(touchedElement, type, id);
             } else {
-                // Swipe left - quick delete or select
                 handleSwipeLeft(touchedElement, type, id);
             }
         }
@@ -490,7 +498,7 @@ function createTreeItem(iconSvg, label, type, id) {
 
     const icon = document.createElement('span');
     icon.className = 'tree-item-icon';
-    icon.innerHTML = iconSvg;
+    setTrustedHTML(icon, iconSvg);
 
     const labelEl = document.createElement('span');
     labelEl.className = 'tree-item-label';

@@ -2649,74 +2649,122 @@ var {
   mergeConfig: mergeConfig2
 } = axios_default;
 
+// static/js/studio/custom-instance.ts
+var AXIOS_INSTANCE = axios_default.create();
+var customInstance = (config, options) => {
+  const source = axios_default.CancelToken.source();
+  const promise = AXIOS_INSTANCE({
+    ...config,
+    ...options,
+    cancelToken: source.token
+  }).then(({ data }) => data);
+  promise.cancel = () => source.cancel("Query was cancelled");
+  return promise;
+};
+
 // static/js/studio/client.ts
-var getOpenVoxAPI = (axiosInstance = axios_default) => {
+var getOpenVoxAPI = () => {
   const getOpenapiJson = (options) => {
-    return axiosInstance.get(
-      `/openapi.json`,
+    return customInstance(
+      {
+        url: `/openapi.json`,
+        method: "GET"
+      },
       options
     );
   };
   const get = (options) => {
-    return axiosInstance.get(
-      `/`,
+    return customInstance(
+      {
+        url: `/`,
+        method: "GET"
+      },
       options
     );
   };
   const getHealth = (options) => {
-    return axiosInstance.get(
-      `/health`,
+    return customInstance(
+      {
+        url: `/health`,
+        method: "GET"
+      },
       options
     );
   };
   const getV1Voices = (options) => {
-    return axiosInstance.get(
-      `/v1/voices`,
+    return customInstance(
+      {
+        url: `/v1/voices`,
+        method: "GET"
+      },
       options
     );
   };
   const postV1AudioSpeech = (speechGenerationBody, options) => {
-    return axiosInstance.post(
-      `/v1/audio/speech`,
-      speechGenerationBody,
+    return customInstance(
+      {
+        url: `/v1/audio/speech`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: speechGenerationBody
+      },
       options
     );
   };
   const postApiStudioSources = (postApiStudioSourcesBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/sources`,
-      postApiStudioSourcesBody,
+    return customInstance(
+      {
+        url: `/api/studio/sources`,
+        method: "POST",
+        data: postApiStudioSourcesBody
+      },
       options
     );
   };
   const getApiStudioSources = (options) => {
-    return axiosInstance.get(
-      `/api/studio/sources`,
+    return customInstance(
+      {
+        url: `/api/studio/sources`,
+        method: "GET"
+      },
       options
     );
   };
   const getApiStudioSourcesSourceId = (sourceId, options) => {
-    return axiosInstance.get(
-      `/api/studio/sources/${sourceId}`,
+    return customInstance(
+      {
+        url: `/api/studio/sources/${sourceId}`,
+        method: "GET"
+      },
       options
     );
   };
   const putApiStudioSourcesSourceId = (sourceId, updateSourceBody, options) => {
-    return axiosInstance.put(
-      `/api/studio/sources/${sourceId}`,
-      updateSourceBody,
+    return customInstance(
+      {
+        url: `/api/studio/sources/${sourceId}`,
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        data: updateSourceBody
+      },
       options
     );
   };
   const deleteApiStudioSourcesSourceId = (sourceId, options) => {
-    return axiosInstance.delete(
-      `/api/studio/sources/${sourceId}`,
+    return customInstance(
+      {
+        url: `/api/studio/sources/${sourceId}`,
+        method: "DELETE"
+      },
       options
     );
   };
   const getApiStudioSourcesSourceIdCover = (sourceId, options) => {
-    return axiosInstance.get(
-      `/api/studio/sources/${sourceId}/cover`,
+    return customInstance(
+      {
+        url: `/api/studio/sources/${sourceId}/cover`,
+        method: "GET"
+      },
       options
     );
   };
@@ -2725,262 +2773,392 @@ var getOpenVoxAPI = (axiosInstance = axios_default) => {
     if (sourceCoverUploadBody.cover !== void 0) {
       formData.append(`cover`, sourceCoverUploadBody.cover);
     }
-    return axiosInstance.post(
-      `/api/studio/sources/${sourceId}/cover`,
-      formData,
+    return customInstance(
+      {
+        url: `/api/studio/sources/${sourceId}/cover`,
+        method: "POST",
+        data: formData
+      },
       options
     );
   };
   const postApiStudioSourcesSourceIdReClean = (sourceId, reCleanSourceBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/sources/${sourceId}/re-clean`,
-      reCleanSourceBody,
+    return customInstance(
+      {
+        url: `/api/studio/sources/${sourceId}/re-clean`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: reCleanSourceBody
+      },
       options
     );
   };
   const putApiStudioSourcesSourceIdMove = (sourceId, moveToFolderBody, options) => {
-    return axiosInstance.put(
-      `/api/studio/sources/${sourceId}/move`,
-      moveToFolderBody,
+    return customInstance(
+      {
+        url: `/api/studio/sources/${sourceId}/move`,
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        data: moveToFolderBody
+      },
       options
     );
   };
   const postApiStudioEpisodes = (createEpisodeBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/episodes`,
-      createEpisodeBody,
+    return customInstance(
+      {
+        url: `/api/studio/episodes`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: createEpisodeBody
+      },
       options
     );
   };
   const getApiStudioEpisodes = (options) => {
-    return axiosInstance.get(
-      `/api/studio/episodes`,
+    return customInstance(
+      {
+        url: `/api/studio/episodes`,
+        method: "GET"
+      },
       options
     );
   };
   const getApiStudioEpisodesEpisodeId = (episodeId, options) => {
-    return axiosInstance.get(
-      `/api/studio/episodes/${episodeId}`,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}`,
+        method: "GET"
+      },
       options
     );
   };
   const putApiStudioEpisodesEpisodeId = (episodeId, updateEpisodeBody, options) => {
-    return axiosInstance.put(
-      `/api/studio/episodes/${episodeId}`,
-      updateEpisodeBody,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}`,
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        data: updateEpisodeBody
+      },
       options
     );
   };
   const deleteApiStudioEpisodesEpisodeId = (episodeId, options) => {
-    return axiosInstance.delete(
-      `/api/studio/episodes/${episodeId}`,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}`,
+        method: "DELETE"
+      },
       options
     );
   };
   const postApiStudioEpisodesEpisodeIdRegenerate = (episodeId, options) => {
-    return axiosInstance.post(
-      `/api/studio/episodes/${episodeId}/regenerate`,
-      void 0,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}/regenerate`,
+        method: "POST"
+      },
       options
     );
   };
   const postApiStudioEpisodesEpisodeIdRegenerateWithSettings = (episodeId, regenerateWithSettingsBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/episodes/${episodeId}/regenerate-with-settings`,
-      regenerateWithSettingsBody,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}/regenerate-with-settings`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: regenerateWithSettingsBody
+      },
       options
     );
   };
   const postApiStudioUndoUndoId = (undoId, options) => {
-    return axiosInstance.post(
-      `/api/studio/undo/${undoId}`,
-      void 0,
+    return customInstance(
+      {
+        url: `/api/studio/undo/${undoId}`,
+        method: "POST"
+      },
       options
     );
   };
   const postApiStudioEpisodesBulkMove = (bulkMoveEpisodesBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/episodes/bulk-move`,
-      bulkMoveEpisodesBody,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/bulk-move`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: bulkMoveEpisodesBody
+      },
       options
     );
   };
   const postApiStudioEpisodesBulkDelete = (bulkDeleteEpisodesBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/episodes/bulk-delete`,
-      bulkDeleteEpisodesBody,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/bulk-delete`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: bulkDeleteEpisodesBody
+      },
       options
     );
   };
   const postApiStudioEpisodesEpisodeIdChunksChunkIndexRegenerate = (episodeId, chunkIndex, options) => {
-    return axiosInstance.post(
-      `/api/studio/episodes/${episodeId}/chunks/${chunkIndex}/regenerate`,
-      void 0,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}/chunks/${chunkIndex}/regenerate`,
+        method: "POST"
+      },
       options
     );
   };
   const postApiStudioEpisodesEpisodeIdCancel = (episodeId, options) => {
-    return axiosInstance.post(
-      `/api/studio/episodes/${episodeId}/cancel`,
-      void 0,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}/cancel`,
+        method: "POST"
+      },
       options
     );
   };
   const postApiStudioEpisodesEpisodeIdRetryErrors = (episodeId, options) => {
-    return axiosInstance.post(
-      `/api/studio/episodes/${episodeId}/retry-errors`,
-      void 0,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}/retry-errors`,
+        method: "POST"
+      },
       options
     );
   };
   const getApiStudioEpisodesEpisodeIdAudioChunkIndex = (episodeId, chunkIndex, options) => {
-    return axiosInstance.get(
-      `/api/studio/episodes/${episodeId}/audio/${chunkIndex}`,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}/audio/${chunkIndex}`,
+        method: "GET"
+      },
       options
     );
   };
   const getApiStudioEpisodesEpisodeIdAudioFull = (episodeId, options) => {
-    return axiosInstance.get(
-      `/api/studio/episodes/${episodeId}/audio/full`,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}/audio/full`,
+        method: "GET"
+      },
       options
     );
   };
   const putApiStudioEpisodesEpisodeIdMove = (episodeId, moveToFolderBody, options) => {
-    return axiosInstance.put(
-      `/api/studio/episodes/${episodeId}/move`,
-      moveToFolderBody,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}/move`,
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        data: moveToFolderBody
+      },
       options
     );
   };
   const postApiStudioFolders = (createFolderBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/folders`,
-      createFolderBody,
+    return customInstance(
+      {
+        url: `/api/studio/folders`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: createFolderBody
+      },
       options
     );
   };
   const putApiStudioFoldersFolderId = (folderId, updateFolderBody, options) => {
-    return axiosInstance.put(
-      `/api/studio/folders/${folderId}`,
-      updateFolderBody,
+    return customInstance(
+      {
+        url: `/api/studio/folders/${folderId}`,
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        data: updateFolderBody
+      },
       options
     );
   };
   const deleteApiStudioFoldersFolderId = (folderId, options) => {
-    return axiosInstance.delete(
-      `/api/studio/folders/${folderId}`,
+    return customInstance(
+      {
+        url: `/api/studio/folders/${folderId}`,
+        method: "DELETE"
+      },
       options
     );
   };
   const postApiStudioFoldersFolderIdPlaylist = (folderId, options) => {
-    return axiosInstance.post(
-      `/api/studio/folders/${folderId}/playlist`,
-      void 0,
+    return customInstance(
+      {
+        url: `/api/studio/folders/${folderId}/playlist`,
+        method: "POST"
+      },
       options
     );
   };
   const getApiStudioFoldersFolderIdEpisodes = (folderId, options) => {
-    return axiosInstance.get(
-      `/api/studio/folders/${folderId}/episodes`,
+    return customInstance(
+      {
+        url: `/api/studio/folders/${folderId}/episodes`,
+        method: "GET"
+      },
       options
     );
   };
   const postApiStudioReorder = (reorderBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/reorder`,
-      reorderBody,
+    return customInstance(
+      {
+        url: `/api/studio/reorder`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: reorderBody
+      },
       options
     );
   };
   const getApiStudioTags = (options) => {
-    return axiosInstance.get(
-      `/api/studio/tags`,
+    return customInstance(
+      {
+        url: `/api/studio/tags`,
+        method: "GET"
+      },
       options
     );
   };
   const postApiStudioTags = (createTagBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/tags`,
-      createTagBody,
+    return customInstance(
+      {
+        url: `/api/studio/tags`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: createTagBody
+      },
       options
     );
   };
   const deleteApiStudioTagsTagId = (tagId, options) => {
-    return axiosInstance.delete(
-      `/api/studio/tags/${tagId}`,
+    return customInstance(
+      {
+        url: `/api/studio/tags/${tagId}`,
+        method: "DELETE"
+      },
       options
     );
   };
   const postApiStudioSourcesSourceIdTags = (sourceId, setTagsBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/sources/${sourceId}/tags`,
-      setTagsBody,
+    return customInstance(
+      {
+        url: `/api/studio/sources/${sourceId}/tags`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: setTagsBody
+      },
       options
     );
   };
   const postApiStudioEpisodesEpisodeIdTags = (episodeId, setTagsBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/episodes/${episodeId}/tags`,
-      setTagsBody,
+    return customInstance(
+      {
+        url: `/api/studio/episodes/${episodeId}/tags`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: setTagsBody
+      },
       options
     );
   };
   const getApiStudioPlaybackEpisodeId = (episodeId, options) => {
-    return axiosInstance.get(
-      `/api/studio/playback/${episodeId}`,
+    return customInstance(
+      {
+        url: `/api/studio/playback/${episodeId}`,
+        method: "GET"
+      },
       options
     );
   };
   const postApiStudioPlaybackEpisodeId = (episodeId, savePlaybackBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/playback/${episodeId}`,
-      savePlaybackBody,
+    return customInstance(
+      {
+        url: `/api/studio/playback/${episodeId}`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: savePlaybackBody
+      },
       options
     );
   };
   const getApiStudioSettings = (options) => {
-    return axiosInstance.get(
-      `/api/studio/settings`,
+    return customInstance(
+      {
+        url: `/api/studio/settings`,
+        method: "GET"
+      },
       options
     );
   };
   const putApiStudioSettings = (updateSettingsBody, options) => {
-    return axiosInstance.put(
-      `/api/studio/settings`,
-      updateSettingsBody,
+    return customInstance(
+      {
+        url: `/api/studio/settings`,
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        data: updateSettingsBody
+      },
       options
     );
   };
   const getApiStudioGenerationStatus = (options) => {
-    return axiosInstance.get(
-      `/api/studio/generation/status`,
+    return customInstance(
+      {
+        url: `/api/studio/generation/status`,
+        method: "GET"
+      },
       options
     );
   };
   const getApiStudioLibraryTree = (options) => {
-    return axiosInstance.get(
-      `/api/studio/library/tree`,
+    return customInstance(
+      {
+        url: `/api/studio/library/tree`,
+        method: "GET"
+      },
       options
     );
   };
   const postApiStudioPreviewClean = (previewCleanBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/preview-clean`,
-      previewCleanBody,
+    return customInstance(
+      {
+        url: `/api/studio/preview-clean`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: previewCleanBody
+      },
       options
     );
   };
   const postApiStudioPreviewContent = (previewContentBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/preview-content`,
-      previewContentBody,
+    return customInstance(
+      {
+        url: `/api/studio/preview-content`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: previewContentBody
+      },
       options
     );
   };
   const postApiStudioPreviewChunks = (previewChunksBody, options) => {
-    return axiosInstance.post(
-      `/api/studio/preview-chunks`,
-      previewChunksBody,
+    return customInstance(
+      {
+        url: `/api/studio/preview-chunks`,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        data: previewChunksBody
+      },
       options
     );
   };
@@ -2988,17 +3166,14 @@ var getOpenVoxAPI = (axiosInstance = axios_default) => {
 };
 
 // static/js/studio/api.ts
-var generated = getOpenVoxAPI();
-var client = new Proxy({}, {
-  get(_, method) {
-    return (...args) => generated[method](...args).then((res) => res.data);
-  }
-});
+var client = getOpenVoxAPI();
 var chunkAudioUrl = (episodeId, chunkIndex) => `/api/studio/episodes/${episodeId}/audio/${chunkIndex}`;
 var fullEpisodeAudioUrl = (episodeId) => `/api/studio/episodes/${episodeId}/audio/full`;
+var sourceCoverUrl = (sourceId) => `/api/studio/sources/${sourceId}/cover`;
 export {
   chunkAudioUrl,
   client,
-  fullEpisodeAudioUrl
+  fullEpisodeAudioUrl,
+  sourceCoverUrl
 };
 //# sourceMappingURL=api.bundle.js.map
