@@ -7,6 +7,7 @@ import { init as initLibrary } from './library.js';
 import { init as initEditor, route as editorRoute } from './editor.js';
 import { init as initPlayer } from './player.js';
 import { init as initSettings } from './settings.js';
+import { fromHTML } from './dom.js';
 
 // ── Toast notifications ─────────────────────────────────────────────
 
@@ -285,7 +286,11 @@ function initBottomSheet() {
             if (action.danger) btn.classList.add('danger');
 
             if (action.icon) {
-                btn.innerHTML = `${action.icon}<span>${action.label}</span>`;
+                const iconEl = fromHTML(action.icon);
+                if (iconEl) btn.appendChild(iconEl);
+                const labelSpan = document.createElement('span');
+                labelSpan.textContent = action.label;
+                btn.appendChild(labelSpan);
             } else {
                 btn.textContent = action.label;
             }

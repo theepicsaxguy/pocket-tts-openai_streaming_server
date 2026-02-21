@@ -40,6 +40,7 @@ export default [
                 navigator: 'readonly',
                 MediaMetadata: 'readonly',
                 Node: 'readonly',
+                isFinite: 'readonly',
             },
         },
         rules: {
@@ -66,6 +67,19 @@ export default [
                 asyncArrow: 'always',
             }],
             'no-empty': 'off',
+            'no-restricted-syntax': [
+                'error',
+                {
+                    selector: 'AssignmentExpression[left.property.name="innerHTML"]',
+                    message: 'Direct innerHTML assignment is banned for XSS prevention. Use dom.js helpers (setTrustedHTML for trusted content, setText for user content).',
+                },
+            ],
+        },
+    },
+    {
+        files: ['static/js/studio/dom.js'],
+        rules: {
+            'no-restricted-syntax': 'off',
         },
     },
     {

@@ -8,7 +8,7 @@ import * as state from './state.js';
 import { toast, confirm as confirmDialog } from './main.js';
 import { loadEpisode } from './player.js';
 import { openFullscreenPlayer } from './player-render.js';
-import { createElement, clearContent } from './dom.js';
+import { createElement, clearContent, setTrustedHTML } from './dom.js';
 
 const SVG_FOLDER = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
     <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
@@ -498,7 +498,7 @@ function createTreeItem(iconSvg, label, type, id) {
 
     const icon = document.createElement('span');
     icon.className = 'tree-item-icon';
-    icon.innerHTML = iconSvg;
+    setTrustedHTML(icon, iconSvg);
 
     const labelEl = document.createElement('span');
     labelEl.className = 'tree-item-label';

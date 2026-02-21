@@ -16,7 +16,6 @@ export function clearContent(el) {
  * Set innerHTML from TRUSTED sources only (SVG icons, server-sanitized HTML).
  * NEVER pass user-provided or URL-derived content to this function.
  */
-// eslint-disable-next-line openvox/no-innerhtml
 export function setTrustedHTML(el, html) {
     el.innerHTML = html;
 }
@@ -24,7 +23,6 @@ export function setTrustedHTML(el, html) {
 /**
  * @deprecated Use setTrustedHTML for trusted content or setText for user content.
  */
-// eslint-disable-next-line openvox/no-innerhtml
 export const setContent = setTrustedHTML;
 
 export function createElement(tag, attrs = {}, children = []) {
@@ -56,7 +54,6 @@ export function createElement(tag, attrs = {}, children = []) {
  * Parse trusted HTML string into a DOM node.
  * Only use with static/server-trusted content (e.g., SVG icons).
  */
-// eslint-disable-next-line openvox/no-innerhtml
 export function fromHTML(html) {
     const template = document.createElement('template');
     template.innerHTML = html.trim();
