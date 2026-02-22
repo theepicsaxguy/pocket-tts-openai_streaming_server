@@ -136,6 +136,8 @@ test.describe('SPA: Hash Routing Resynchronization', () => {
 // ── Console Error Policy Tests ─────────────────────────────────────
 
 test.describe('Console Error Policy', () => {
+    test.use({ viewport: { width: 375, height: 812 } });
+
     test('no JS errors on full navigation cycle', async ({ page }) => {
         const errors = collectConsoleErrors(page);
 
