@@ -64,11 +64,9 @@ def calculate_word_timings(text: str, duration_secs: float) -> list[dict]:
             word_ratio = word_chars / char_count if char_count > 0 else 0
             word_duration = sent_duration * word_ratio
 
-            word_timings_in_sent.append({
-                'word': word,
-                'start': current_time,
-                'end': current_time + word_duration
-            })
+            word_timings_in_sent.append(
+                {'word': word, 'start': current_time, 'end': current_time + word_duration}
+            )
             current_time += word_duration
 
         sentence_timings.append(word_timings_in_sent)
@@ -79,11 +77,9 @@ def calculate_word_timings(text: str, duration_secs: float) -> list[dict]:
 
     for sent_timing in sentence_timings:
         for wt in sent_timing:
-            result.append({
-                'word': wt['word'],
-                'start': base_time + wt['start'],
-                'end': base_time + wt['end']
-            })
+            result.append(
+                {'word': wt['word'], 'start': base_time + wt['start'], 'end': base_time + wt['end']}
+            )
         if sent_timing:
             base_time = sent_timing[-1]['end']
 
